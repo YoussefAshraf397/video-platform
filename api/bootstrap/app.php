@@ -1,5 +1,9 @@
 <?php
 
+use App\Platform\Api\Errors\ApiProblem;
+use App\Platform\Api\Errors\ProblemRenderer;
+use App\Platform\Api\Http\Middleware\AssignRequestId;
+use App\Platform\Api\Http\Middleware\EnforceIdempotency;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -11,10 +15,13 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->prepend(AssignRequestId::class);
+        $middleware->alias(['idempotent' => EnforceIdempotency::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
-        );
+        $exceptions->dontReportWhen(fn (Throwable $e) => $e instanceof ApiProblem && $e->status < 500);
+
+        $exceptions->render(fn (Throwable $e, Request $request) => ProblemRenderer::shouldRender($request)
+            ? ProblemRenderer::render($e)
+            : null);
     })->create();
