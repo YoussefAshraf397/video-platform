@@ -1,0 +1,22 @@
+{
+  "event_id": "0199b1f3-0003-7c3e-9d41-2f6b8a1c0e04",
+  "event_type": "VideoProcessingFailed",
+  "schema_version": 1,
+  "occurred_at": "2026-10-04T12:00:04.207Z",
+  "producer": "media-worker",
+  "aggregate_type": "video",
+  "aggregate_id": "0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01",
+  "aggregate_version": 5,
+  "trace_id": null,
+  "payload": {
+    "video_id": "0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01",
+    "job_id": "0199b1f2-2222-7ccc-8ddd-0e0e0e0e0e01",
+    "processing_version": 1,
+    "failed_step": "validate",
+    "error": {
+      "code": "NO_VIDEO_STREAM",
+      "message": "source contains 1 audio stream and no video stream",
+      "retryable": false
+    }
+  }
+}

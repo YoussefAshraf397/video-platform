@@ -6,6 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Tests\Fixtures\TestEvent;
+use Tests\Support\Contracts;
 
 uses(RefreshDatabase::class);
 
@@ -29,6 +30,12 @@ it('stores the full envelope in the outbox', function () {
             'payload' => ['hello' => 'world'],
         ])
         ->and(json_decode($row->envelope, true)['occurred_at'])->toMatch('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/');
+});
+
+it('writes envelopes that match the shared contract', function () {
+    $id = DB::transaction(fn () => app(OutboxPublisher::class)->publish(new TestEvent('video-events')));
+
+    expect(Contracts::violations('envelope.v1', OutboxMessage::findOrFail($id)->envelope))->toBeNull();
 });
 
 it('discards the event when the business transaction rolls back', function () {

@@ -1,0 +1,27 @@
+{
+  "event_id": "0199b1f5-0001-7c3e-9d41-2f6b8a1c0e02",
+  "event_type": "VideoRenditionReady",
+  "schema_version": 1,
+  "occurred_at": "2026-10-04T12:03:10.512Z",
+  "producer": "media-worker",
+  "aggregate_type": "video",
+  "aggregate_id": "0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01",
+  "aggregate_version": 5,
+  "trace_id": null,
+  "payload": {
+    "video_id": "0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01",
+    "job_id": "0199b1f2-2222-7ccc-8ddd-0e0e0e0e0e01",
+    "processing_version": 1,
+    "rendition": {
+      "codec": "h264",
+      "width": 640,
+      "height": 360,
+      "frame_rate": 30,
+      "bitrate_avg": 800000,
+      "bitrate_peak": 1100000,
+      "playlist_key": "media/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/v1/h264_360p30/playlist.m3u8",
+      "segment_duration_ms": 4000
+    },
+    "master_playlist_key": "media/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/v1/master.m3u8"
+  }
+}

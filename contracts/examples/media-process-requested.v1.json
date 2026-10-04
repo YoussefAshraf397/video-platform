@@ -1,0 +1,25 @@
+{
+  "event_id": "0199b1f2-6a10-7c3e-9d41-2f6b8a1c0e01",
+  "event_type": "MediaProcessRequested",
+  "schema_version": 1,
+  "occurred_at": "2026-10-04T12:00:00.000Z",
+  "producer": "api",
+  "aggregate_type": "video",
+  "aggregate_id": "0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01",
+  "aggregate_version": 5,
+  "trace_id": null,
+  "payload": {
+    "video_id": "0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01",
+    "job_id": "0199b1f2-2222-7ccc-8ddd-0e0e0e0e0e01",
+    "processing_version": 1,
+    "source": {
+      "bucket": "uploads",
+      "key": "uploads/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/0199b1f1-3333-7eee-8fff-0a0a0a0a0a01/source"
+    },
+    "output": {
+      "bucket": "media",
+      "prefix": "media/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/v1/"
+    },
+    "profile": "h264-sdr-v1"
+  }
+}

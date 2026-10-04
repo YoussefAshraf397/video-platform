@@ -1,0 +1,36 @@
+{
+  "event_id": "0199b1f9-0002-7c3e-9d41-2f6b8a1c0e03",
+  "event_type": "VideoProcessingCompleted",
+  "schema_version": 1,
+  "occurred_at": "2026-10-04T12:09:42.031Z",
+  "producer": "media-worker",
+  "aggregate_type": "video",
+  "aggregate_id": "0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01",
+  "aggregate_version": 5,
+  "trace_id": null,
+  "payload": {
+    "video_id": "0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01",
+    "job_id": "0199b1f2-2222-7ccc-8ddd-0e0e0e0e0e01",
+    "processing_version": 1,
+    "duration_ms": 612480,
+    "source": { "width": 1080, "height": 1920, "frame_rate": 29.97, "has_audio": true },
+    "renditions": [
+      {
+        "codec": "h264", "width": 360, "height": 640, "frame_rate": 29.97,
+        "bitrate_avg": 800000, "bitrate_peak": 1100000,
+        "playlist_key": "media/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/v1/h264_360p30/playlist.m3u8",
+        "segment_duration_ms": 4000
+      },
+      {
+        "codec": "h264", "width": 1080, "height": 1920, "frame_rate": 29.97,
+        "bitrate_avg": 5500000, "bitrate_peak": 7500000,
+        "playlist_key": "media/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/v1/h264_1080p30/playlist.m3u8",
+        "segment_duration_ms": 4000
+      }
+    ],
+    "master_playlist_key": "media/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/v1/master.m3u8",
+    "thumbnails": [
+      { "key": "media/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/v1/thumbs/25_1280x720.jpg", "width": 405, "height": 720, "time_offset_ms": 153120 }
+    ]
+  }
+}

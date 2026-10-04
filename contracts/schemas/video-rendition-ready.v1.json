@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.video-platform.internal/video-rendition-ready.v1.json",
+  "title": "VideoRenditionReady",
+  "description": "From the media worker (queue: media-results): one more rendition is playable. The first one moves the video to READY.",
+  "allOf": [{ "$ref": "envelope.v1.json" }],
+  "properties": {
+    "event_type": { "const": "VideoRenditionReady" },
+    "schema_version": { "const": 1 },
+    "producer": { "const": "media-worker" },
+    "aggregate_type": { "const": "video" },
+    "payload": {
+      "allOf": [{ "$ref": "common.v1.json#/$defs/jobRef" }],
+      "unevaluatedProperties": false,
+      "required": ["rendition", "master_playlist_key"],
+      "properties": {
+        "rendition": { "$ref": "common.v1.json#/$defs/rendition" },
+        "master_playlist_key": { "type": "string", "minLength": 1, "description": "Master playlist, rewritten to include every rendition ready so far." }
+      }
+    }
+  }
+}

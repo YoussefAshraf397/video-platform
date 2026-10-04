@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.video-platform.internal/media-process-requested.v1.json",
+  "title": "MediaProcessRequested",
+  "description": "Command from the API to the media worker (queue: media-process): transcode one uploaded source into an HLS ladder.",
+  "allOf": [{ "$ref": "envelope.v1.json" }],
+  "properties": {
+    "event_type": { "const": "MediaProcessRequested" },
+    "schema_version": { "const": 1 },
+    "producer": { "const": "api" },
+    "aggregate_type": { "const": "video" },
+    "payload": {
+      "allOf": [{ "$ref": "common.v1.json#/$defs/jobRef" }],
+      "unevaluatedProperties": false,
+      "required": ["source", "output", "profile"],
+      "properties": {
+        "source": { "$ref": "common.v1.json#/$defs/s3Object", "description": "The original upload." },
+        "output": { "$ref": "common.v1.json#/$defs/s3Prefix", "description": "Where to write renditions, manifests and thumbnails: media/{video_id}/v{processing_version}/." },
+        "profile": { "type": "string", "pattern": "^[a-z0-9-]+$", "description": "Encoding ladder profile, e.g. h264-sdr-v1 (ADR-004)." }
+      }
+    }
+  }
+}

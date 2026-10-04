@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.video-platform.internal/common.v1.json",
+  "title": "Shared definitions",
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "timestamp": {
+      "description": "RFC 3339 timestamp in UTC.",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?Z$"
+    },
+    "errorCode": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    },
+    "s3Object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bucket", "key"],
+      "properties": {
+        "bucket": { "type": "string", "minLength": 3 },
+        "key": { "type": "string", "minLength": 1 }
+      }
+    },
+    "s3Prefix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bucket", "prefix"],
+      "properties": {
+        "bucket": { "type": "string", "minLength": 3 },
+        "prefix": { "type": "string", "pattern": "^.+/$" }
+      }
+    },
+    "rendition": {
+      "description": "One rung of the HLS ladder (ADR-004).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codec", "width", "height", "frame_rate", "bitrate_avg", "bitrate_peak", "playlist_key", "segment_duration_ms"],
+      "properties": {
+        "codec": { "type": "string", "enum": ["h264", "hevc", "av1"] },
+        "width": { "type": "integer", "minimum": 2 },
+        "height": { "type": "integer", "minimum": 2 },
+        "frame_rate": { "type": "number", "exclusiveMinimum": 0 },
+        "bitrate_avg": { "description": "Bits per second.", "type": "integer", "minimum": 1 },
+        "bitrate_peak": { "description": "Bits per second.", "type": "integer", "minimum": 1 },
+        "playlist_key": { "description": "S3 key of this rendition's media playlist.", "type": "string", "minLength": 1 },
+        "segment_duration_ms": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "thumbnail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "width", "height", "time_offset_ms"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "time_offset_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "jobRef": {
+      "description": "Identifies the processing job a media message belongs to.",
+      "type": "object",
+      "required": ["video_id", "job_id", "processing_version"],
+      "properties": {
+        "video_id": { "$ref": "#/$defs/uuid" },
+        "job_id": { "$ref": "#/$defs/uuid" },
+        "processing_version": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

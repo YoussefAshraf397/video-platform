@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.video-platform.internal/video-processing-failed.v1.json",
+  "title": "VideoProcessingFailed",
+  "description": "From the media worker (queue: media-results): processing stopped for good. Sent for non-retryable media errors, or after transient retries are exhausted.",
+  "allOf": [{ "$ref": "envelope.v1.json" }],
+  "properties": {
+    "event_type": { "const": "VideoProcessingFailed" },
+    "schema_version": { "const": 1 },
+    "producer": { "const": "media-worker" },
+    "aggregate_type": { "const": "video" },
+    "payload": {
+      "allOf": [{ "$ref": "common.v1.json#/$defs/jobRef" }],
+      "unevaluatedProperties": false,
+      "required": ["failed_step", "error"],
+      "properties": {
+        "failed_step": { "type": "string", "enum": ["download", "probe", "validate", "transcode", "package", "thumbnails", "captions", "upload"] },
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "message", "retryable"],
+          "properties": {
+            "code": {
+              "$ref": "common.v1.json#/$defs/errorCode",
+              "description": "e.g. SOURCE_NOT_FOUND, NOT_A_VIDEO, NO_VIDEO_STREAM, UNSUPPORTED_CODEC, DURATION_TOO_LONG, RESOLUTION_OUT_OF_RANGE, CORRUPT_SOURCE, ENCODER_FAILED, RETRIES_EXHAUSTED. New codes may be added; consumers must handle unknown ones."
+            },
+            "message": { "type": "string", "maxLength": 1000, "description": "For logs and the admin console. Not shown to creators verbatim." },
+            "retryable": { "type": "boolean", "description": "true when retrying the same source could succeed (e.g. after a worker fix)." }
+          }
+        }
+      }
+    }
+  }
+}
