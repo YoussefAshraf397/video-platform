@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\User;
+use App\Modules\Users\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Fixtures\SampleController;
 
@@ -9,7 +9,7 @@ uses(RefreshDatabase::class);
 beforeEach(fn () => SampleController::routes());
 
 it('walks every row exactly once across pages', function () {
-    $ids = User::factory()->count(5)->create()->pluck('id')->all();
+    $ids = User::factory()->count(5)->create()->pluck('id')->sort()->values()->all();   // the order the query uses
 
     $seen = [];
     $cursor = null;

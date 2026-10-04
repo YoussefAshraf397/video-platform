@@ -17,6 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(AssignRequestId::class);
         $middleware->alias(['idempotent' => EnforceIdempotency::class]);
+        // An API never redirects unauthenticated callers to a login page; they get a 401 problem.
+        $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontReportWhen(fn (Throwable $e) => $e instanceof ApiProblem && $e->status < 500);

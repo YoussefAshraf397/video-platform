@@ -1,117 +1,55 @@
 <?php
 
-use App\Models\User;
-
+/*
+ * Authentication is token-based (design doc §23): short-lived JWT access tokens plus rotating
+ * refresh tokens, implemented in app/Modules/Auth. There are no server-side web sessions.
+ */
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Authentication Defaults
-    |--------------------------------------------------------------------------
-    |
-    | This option defines the default authentication "guard" and password
-    | reset "broker" for your application. You may change these values
-    | as required, but they're a perfect start for most applications.
-    |
-    */
-
     'defaults' => [
-        'guard' => env('AUTH_GUARD', 'web'),
-        'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
+        'guard' => 'api',
     ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Authentication Guards
-    |--------------------------------------------------------------------------
-    |
-    | Next, you may define every authentication guard for your application.
-    | Of course, a great default configuration has been defined for you
-    | which utilizes session storage plus the Eloquent user provider.
-    |
-    | All authentication guards have a user provider, which defines how the
-    | users are actually retrieved out of your database or other storage
-    | system used by the application. Typically, Eloquent is utilized.
-    |
-    | Supported: "session"
-    |
-    */
 
     'guards' => [
-        'web' => [
-            'driver' => 'session',
-            'provider' => 'users',
+        'api' => [
+            'driver' => 'jwt',   // registered by App\Modules\Auth\Providers\AuthServiceProvider
         ],
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | User Providers
-    |--------------------------------------------------------------------------
-    |
-    | All authentication guards have a user provider, which defines how the
-    | users are actually retrieved out of your database or other storage
-    | system used by the application. Typically, Eloquent is utilized.
-    |
-    | If you have multiple user tables or models you may configure multiple
-    | providers to represent the model / table. These providers may then
-    | be assigned to any extra authentication guards you have defined.
-    |
-    | Supported: "database", "eloquent"
-    |
-    */
+    'tokens' => [
+        'issuer' => env('APP_URL', 'http://localhost'),
+        'audience' => 'video-platform-api',
 
-    'providers' => [
-        'users' => [
-            'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', User::class),
+        'access_ttl_seconds' => 15 * 60,
+        // Refresh tokens slide: each refresh issues one valid for another 30 days, until the
+        // session's absolute limit.
+        'refresh_ttl_seconds' => 30 * 24 * 3600,
+        'session_max_lifetime_seconds' => 90 * 24 * 3600,
+        // A refresh token used again within this window (two tabs refreshing at once) is
+        // rejected without revoking the session; later reuse is treated as theft.
+        'reuse_grace_seconds' => 20,
+
+        // Ed25519 keys, base64-encoded (generate with `php artisan auth:jwt-keys`). The previous
+        // public key keeps tokens signed before a key rotation valid until they expire.
+        'signing_key' => [
+            'id' => env('JWT_KEY_ID'),
+            'private' => env('JWT_PRIVATE_KEY'),
+            'public' => env('JWT_PUBLIC_KEY'),
+        ],
+        'previous_key' => [
+            'id' => env('JWT_PREVIOUS_KEY_ID'),
+            'public' => env('JWT_PREVIOUS_PUBLIC_KEY'),
         ],
 
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
+        // Browsers may call cookie-authenticated endpoints (refresh) only from these origins.
+        'allowed_origins' => array_filter(array_map('trim', explode(',', (string) env('FRONTEND_ORIGINS', 'http://localhost:3000')))),
+        'refresh_cookie' => 'refresh_token',
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Resetting Passwords
-    |--------------------------------------------------------------------------
-    |
-    | These configuration options specify the behavior of Laravel's password
-    | reset functionality, including the table utilized for token storage
-    | and the user provider that is invoked to actually retrieve users.
-    |
-    | The expiry time is the number of minutes that each reset token will be
-    | considered valid. This security feature keeps tokens short-lived so
-    | they have less time to be guessed. You may change this as needed.
-    |
-    | The throttle setting is the number of seconds a user must wait before
-    | generating more password reset tokens. This prevents the user from
-    | quickly generating a very large amount of password reset tokens.
-    |
-    */
-
-    'passwords' => [
-        'users' => [
-            'provider' => 'users',
-            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
-            'expire' => 60,
-            'throttle' => 60,
-        ],
+    'email_verification' => [
+        'ttl_seconds' => 24 * 3600,
+        // Link in the verification email; the frontend posts the token to /v1/auth/email/verify.
+        'url' => env('FRONTEND_URL', 'http://localhost:3000').'/verify-email?token=',
     ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Password Confirmation Timeout
-    |--------------------------------------------------------------------------
-    |
-    | Here you may define the number of seconds before a password confirmation
-    | window expires and users are asked to re-enter their password via the
-    | confirmation screen. By default, the timeout lasts for three hours.
-    |
-    */
-
-    'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
 ];

@@ -4,6 +4,7 @@ namespace App\Platform\Api\Http\Middleware;
 
 use App\Platform\Api\Errors\ApiProblem;
 use Closure;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -46,7 +47,9 @@ final class EnforceIdempotency
             throw new ApiProblem(400, 'IDEMPOTENCY_KEY_INVALID', 'Idempotency-Key must be 1-255 printable ASCII characters');
         }
 
-        $scope = $request->user()?->getAuthIdentifier() ?? 'ip:'.$request->ip();
+        // Whatever the guard returns; this middleware doesn't depend on a user class.
+        $user = ($request->getUserResolver())();
+        $scope = $user instanceof Authenticatable ? $user->getAuthIdentifier() : 'ip:'.$request->ip();
         $cacheKey = self::cacheKey((string) $scope, $key);
         $fingerprint = hash('sha256', $request->method().' '.$request->path()."\n".$request->getContent());
 

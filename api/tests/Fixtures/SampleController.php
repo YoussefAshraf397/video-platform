@@ -2,7 +2,7 @@
 
 namespace Tests\Fixtures;
 
-use App\Models\User;
+use App\Modules\Users\Models\User;
 use App\Platform\Api\Errors\ApiProblem;
 use App\Platform\Api\Pagination\CursorPage;
 use Illuminate\Http\JsonResponse;

@@ -13,11 +13,16 @@ cd api
 composer install
 cp .env.example .env
 php artisan key:generate
+php artisan auth:jwt-keys >> .env      # access-token signing keys
 php artisan migrate
 php artisan octane:start          # http://localhost:8000 (first run downloads the FrankenPHP binary)
 ```
 
 `php artisan serve` also works for quick checks. Use Octane for anything that touches request lifecycle or state, because workers are long-lived and static state persists between requests.
+
+**Upgrading from before S2-03:** Laravel's default `users` table was replaced by the Users module's. Run `php artisan migrate:fresh` once, which drops all local data.
+
+Verification emails are queued: run `php artisan queue:work` and open Mailpit at http://localhost:8025 to see them.
 
 ## Tests
 
