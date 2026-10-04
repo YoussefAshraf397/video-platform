@@ -1630,6 +1630,683 @@
                 }
             }
         },
+        "/videos/{video}/uploads": {
+            "post": {
+                "operationId": "upload.store",
+                "tags": [
+                    "Upload"
+                ],
+                "parameters": [
+                    {
+                        "name": "video",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "size_bytes": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 10737418240
+                                    },
+                                    "content_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "video/mp4",
+                                            "video/quicktime",
+                                            "video/x-matroska",
+                                            "video/webm",
+                                            "video/x-msvideo",
+                                            "video/mpeg",
+                                            "video/3gpp"
+                                        ]
+                                    },
+                                    "sha256": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "pattern": "^[0-9a-f]{64}$"
+                                    }
+                                },
+                                "required": [
+                                    "size_bytes",
+                                    "content_type"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "video_id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "size_bytes": {
+                                            "type": "integer"
+                                        },
+                                        "content_type": {
+                                            "type": "string"
+                                        },
+                                        "part_size_bytes": {
+                                            "type": "integer"
+                                        },
+                                        "total_parts": {
+                                            "type": "integer"
+                                        },
+                                        "expires_at": {
+                                            "type": "string"
+                                        },
+                                        "created_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "uploaded_parts": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "minItems": 0,
+                                            "maxItems": 0
+                                        },
+                                        "next_parts": {
+                                            "type": "array",
+                                            "items": {}
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "video_id",
+                                        "status",
+                                        "size_bytes",
+                                        "content_type",
+                                        "part_size_bytes",
+                                        "total_parts",
+                                        "expires_at",
+                                        "created_at",
+                                        "uploaded_parts",
+                                        "next_parts"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "URI identifying the problem type."
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "examples": [
+                                                422
+                                            ]
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "description": "Stable machine-readable error code."
+                                        },
+                                        "request_id": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string"
+                                                    },
+                                                    "code": {
+                                                        "type": "string"
+                                                    },
+                                                    "message": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "code",
+                                                    "message"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "URI identifying the problem type."
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "examples": [
+                                                401
+                                            ]
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "description": "Stable machine-readable error code."
+                                        },
+                                        "request_id": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string"
+                                                    },
+                                                    "code": {
+                                                        "type": "string"
+                                                    },
+                                                    "message": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "code",
+                                                    "message"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/uploads/{upload}/parts:sign": {
+            "post": {
+                "operationId": "upload.sign",
+                "tags": [
+                    "Upload"
+                ],
+                "parameters": [
+                    {
+                        "name": "upload",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "part_numbers": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "minItems": 1,
+                                        "maxItems": 100,
+                                        "uniqueItems": true
+                                    }
+                                },
+                                "required": [
+                                    "part_numbers"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "parts": {
+                                            "type": "array",
+                                            "items": {}
+                                        }
+                                    },
+                                    "required": [
+                                        "parts"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "URI identifying the problem type."
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "examples": [
+                                                422
+                                            ]
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "description": "Stable machine-readable error code."
+                                        },
+                                        "request_id": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string"
+                                                    },
+                                                    "code": {
+                                                        "type": "string"
+                                                    },
+                                                    "message": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "code",
+                                                    "message"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "URI identifying the problem type."
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "examples": [
+                                                401
+                                            ]
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "description": "Stable machine-readable error code."
+                                        },
+                                        "request_id": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string"
+                                                    },
+                                                    "code": {
+                                                        "type": "string"
+                                                    },
+                                                    "message": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "code",
+                                                    "message"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/uploads/{upload}": {
+            "get": {
+                "operationId": "upload.show",
+                "tags": [
+                    "Upload"
+                ],
+                "parameters": [
+                    {
+                        "name": "upload",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "video_id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "size_bytes": {
+                                            "type": "integer"
+                                        },
+                                        "content_type": {
+                                            "type": "string"
+                                        },
+                                        "part_size_bytes": {
+                                            "type": "integer"
+                                        },
+                                        "total_parts": {
+                                            "type": "integer"
+                                        },
+                                        "expires_at": {
+                                            "type": "string"
+                                        },
+                                        "created_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "uploaded_parts": {
+                                            "type": "string"
+                                        },
+                                        "next_parts": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "video_id",
+                                        "status",
+                                        "size_bytes",
+                                        "content_type",
+                                        "part_size_bytes",
+                                        "total_parts",
+                                        "expires_at",
+                                        "created_at",
+                                        "uploaded_parts",
+                                        "next_parts"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "URI identifying the problem type."
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "examples": [
+                                                401
+                                            ]
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "description": "Stable machine-readable error code."
+                                        },
+                                        "request_id": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string"
+                                                    },
+                                                    "code": {
+                                                        "type": "string"
+                                                    },
+                                                    "message": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "code",
+                                                    "message"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "upload.destroy",
+                "tags": [
+                    "Upload"
+                ],
+                "parameters": [
+                    {
+                        "name": "upload",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No content"
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "URI identifying the problem type."
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "examples": [
+                                                401
+                                            ]
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "description": "Stable machine-readable error code."
+                                        },
+                                        "request_id": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string"
+                                                    },
+                                                    "code": {
+                                                        "type": "string"
+                                                    },
+                                                    "message": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "code",
+                                                    "message"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/videos": {
             "post": {
                 "operationId": "video.store",

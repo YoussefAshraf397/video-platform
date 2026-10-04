@@ -3,8 +3,10 @@
 namespace App\Modules\Videos\Services;
 
 use App\Modules\Videos\Contracts\IllegalVideoTransition;
+use App\Modules\Videos\Contracts\VideoDirectory;
 use App\Modules\Videos\Contracts\VideoLifecycle;
 use App\Modules\Videos\Contracts\VideoStatus;
+use App\Modules\Videos\Contracts\VideoSummary;
 use App\Modules\Videos\Models\Category;
 use App\Modules\Videos\Models\Video;
 use App\Platform\Api\Errors\ApiProblem;
@@ -20,7 +22,7 @@ use Normalizer;
  * saw (the ETag), so concurrent edits can't overwrite each other. Status changes go through
  * VideoLifecycle (VideoStateMachine), never through here.
  */
-final class Videos
+final class Videos implements VideoDirectory
 {
     public function __construct(private readonly VideoLifecycle $lifecycle) {}
 
@@ -60,8 +62,20 @@ final class Videos
         return $video;
     }
 
+    public function findOwned(string $publicId, string $callerId): VideoSummary
+    {
+        return self::summary($this->findOwnedModel($publicId, $callerId));
+    }
+
+    public function find(string $videoId): ?VideoSummary
+    {
+        $video = Video::query()->find($videoId);
+
+        return $video ? self::summary($video) : null;
+    }
+
     /** The video if the caller owns it. 404 if they can't see it, 403 if they can but it isn't theirs. */
-    public function findOwned(string $publicId, string $callerId): Video
+    public function findOwnedModel(string $publicId, string $callerId): Video
     {
         $video = $this->findVisible($publicId, $callerId) ?? throw self::notFound();
 
@@ -140,6 +154,11 @@ final class Videos
         }
 
         return $tags;
+    }
+
+    private static function summary(Video $video): VideoSummary
+    {
+        return new VideoSummary($video->id, $video->public_id, $video->uploader_user_id, VideoStatus::from($video->status));
     }
 
     public static function notFound(): ApiProblem

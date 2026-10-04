@@ -1,6 +1,6 @@
 # Videos module
 
-Owns video metadata and the video state machine (design doc §12): the `videos`, `categories`, `tags` and `video_tags` tables. Other modules use `Contracts\VideoLifecycle` / `Contracts\VideoStatus` and listen to `Events\VideoStateChanged`.
+Owns video metadata and the video state machine (design doc §12): the `videos`, `categories`, `tags` and `video_tags` tables. Other modules use `Contracts\VideoDirectory` (owner lookups), `Contracts\VideoLifecycle` / `Contracts\VideoStatus`, and listen to `Events\VideoStateChanged`.
 
 ## Endpoints
 

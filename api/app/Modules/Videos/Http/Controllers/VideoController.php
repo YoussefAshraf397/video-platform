@@ -48,7 +48,7 @@ final class VideoController
     #[Response(428, 'PRECONDITION_REQUIRED: If-Match is missing', 'application/problem+json')]
     public function update(Request $request, string $video): JsonResponse
     {
-        $owned = $this->videos->findOwned($video, CallerId::from($request));
+        $owned = $this->videos->findOwnedModel($video, CallerId::from($request));
         KnownFields::assert($request, self::FIELDS);
         $changes = $request->validate($this->rules(creating: false));
 
@@ -61,7 +61,7 @@ final class VideoController
     #[Response(412, 'PRECONDITION_FAILED', 'application/problem+json')]
     public function destroy(Request $request, string $video): HttpResponse
     {
-        $owned = $this->videos->findOwned($video, CallerId::from($request));
+        $owned = $this->videos->findOwnedModel($video, CallerId::from($request));
         $this->videos->delete($owned, $request->hasHeader('If-Match') ? Preconditions::expectedVersion($request) : null);
 
         return response()->noContent();

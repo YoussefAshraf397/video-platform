@@ -7,14 +7,6 @@ return [
      */
     'producer' => 'api',
 
-    'aws' => [
-        'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
-        'key' => env('AWS_ACCESS_KEY_ID'),
-        'secret' => env('AWS_SECRET_ACCESS_KEY'),
-        // Only set locally (AWS emulator). Unset in AWS environments.
-        'endpoint' => env('AWS_ENDPOINT_URL'),
-    ],
-
     /*
      * Topic ARN = prefix + topic name, e.g. "arn:aws:sns:us-east-1:123456789012:" + "video-events".
      */
