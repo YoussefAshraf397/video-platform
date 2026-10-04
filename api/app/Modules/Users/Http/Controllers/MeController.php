@@ -5,8 +5,8 @@ namespace App\Modules\Users\Http\Controllers;
 use App\Modules\Users\Models\User;
 use App\Modules\Users\Rules\UniqueHandle;
 use App\Modules\Users\Services\Accounts;
-use App\Platform\Api\Errors\ApiProblem;
 use App\Platform\Api\Http\CallerId;
+use App\Platform\Api\Http\KnownFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -25,13 +25,7 @@ final class MeController
         $userId = CallerId::from($request);
 
         // Unknown fields (e.g. "email", which needs re-verification) are an error, not ignored.
-        $unknown = array_diff(array_keys($request->all()), self::EDITABLE);
-        if ($unknown !== []) {
-            throw new ApiProblem(422, 'VALIDATION_FAILED', 'The request is invalid', errors: array_values(array_map(
-                fn (string $field) => ['field' => $field, 'code' => 'UNKNOWN_FIELD', 'message' => "The {$field} field can't be changed here."],
-                $unknown,
-            )));
-        }
+        KnownFields::assert($request, self::EDITABLE);
 
         $changes = $request->validate([
             // bail: report one problem per field, and don't query for handles that are malformed.

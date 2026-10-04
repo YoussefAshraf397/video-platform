@@ -3,6 +3,7 @@
 namespace App\Platform\Api\Pagination;
 
 use App\Platform\Api\Errors\ApiProblem;
+use Closure;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Http\JsonResponse;
@@ -43,13 +44,22 @@ final class CursorPage
     }
 
     /**
+     * `$present` is a JsonResource class, or a closure that turns the whole page of items into
+     * response items at once (so related data can be loaded with one query, not one per item).
+     *
      * @param  CursorPaginator<int, mixed>  $page
-     * @param  class-string<JsonResource>|null  $resource
+     * @param  class-string<JsonResource>|Closure(list<mixed>): list<mixed>|null  $present
      */
-    public static function response(CursorPaginator $page, ?string $resource = null): JsonResponse
+    public static function response(CursorPaginator $page, string|Closure|null $present = null): JsonResponse
     {
+        $items = array_values($page->items());
+
         return new JsonResponse([
-            'items' => $resource ? $resource::collection($page->items())->resolve() : $page->items(),
+            'items' => match (true) {
+                $present instanceof Closure => $present($items),
+                $present !== null => $present::collection($items)->resolve(),
+                default => $items,
+            },
             'next_cursor' => $page->nextCursor()?->encode(),
             'has_more' => $page->hasMorePages(),
         ]);

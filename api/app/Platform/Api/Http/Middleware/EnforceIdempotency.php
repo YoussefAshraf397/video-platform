@@ -28,7 +28,7 @@ final class EnforceIdempotency
     /** Must exceed the longest time a request can run, or a slow request could run twice. */
     private const IN_FLIGHT_TTL_SECONDS = 60;
 
-    private const REPLAYED_HEADERS = ['Content-Type', 'Location'];
+    private const REPLAYED_HEADERS = ['Content-Type', 'Location', 'ETag'];
 
     public function __construct(private readonly Cache $cache) {}
 

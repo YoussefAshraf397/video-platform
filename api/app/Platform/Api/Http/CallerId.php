@@ -14,11 +14,14 @@ final class CallerId
 {
     public static function from(Request $request): string
     {
-        $user = ($request->getUserResolver())();
-        if (! $user instanceof Authenticatable) {
-            throw new ApiProblem(401, 'UNAUTHENTICATED', 'Authentication required');
-        }
+        return self::tryFrom($request) ?? throw new ApiProblem(401, 'UNAUTHENTICATED', 'Authentication required');
+    }
 
-        return (string) $user->getAuthIdentifier();
+    /** For routes that work signed in or not: null for anonymous callers (or an invalid token). */
+    public static function tryFrom(Request $request): ?string
+    {
+        $user = ($request->getUserResolver())();
+
+        return $user instanceof Authenticatable ? (string) $user->getAuthIdentifier() : null;
     }
 }
