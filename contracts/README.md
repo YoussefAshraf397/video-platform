@@ -12,7 +12,7 @@ examples/<event-or-command>.v<major>.json    a valid example payload, used in te
 
 ## Envelope fields
 
-`event_id` (UUID), `event_type`, `schema_version`, `occurred_at` (RFC 3339, UTC), `producer`, `aggregate_id`, `aggregate_version`, `trace_id`, `payload`.
+`event_id` (UUID), `event_type`, `schema_version`, `occurred_at` (RFC 3339, UTC), `producer`, `aggregate_type`, `aggregate_id`, `aggregate_version`, `trace_id` (nullable until OpenTelemetry lands in S3-10), `payload`.
 
 ## Rules
 
