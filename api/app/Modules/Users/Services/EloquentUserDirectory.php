@@ -51,6 +51,7 @@ final class EloquentUserDirectory implements UserDirectory
         return $user === null ? null : new UserRecord(
             $user->id,
             $user->email,
+            $user->handle,
             $user->display_name,
             $user->status,
             $user->email_verified_at,

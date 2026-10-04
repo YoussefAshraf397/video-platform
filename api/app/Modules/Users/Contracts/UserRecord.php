@@ -10,6 +10,7 @@ final readonly class UserRecord
     public function __construct(
         public string $id,
         public string $email,
+        public ?string $handle,
         public string $displayName,
         public string $status,
         public ?DateTimeImmutable $emailVerifiedAt,

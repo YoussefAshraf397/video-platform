@@ -8,6 +8,7 @@ Shared building blocks every module uses (design doc §22). They are demonstrate
 | **Request IDs** | Automatic, on every request. The ID is in the `X-Request-Id` response header, in every log line (`Context`), in problem bodies, and in queued jobs. A well-formed incoming `X-Request-Id` is kept. |
 | **Cursor pagination** | `CursorPage::response(CursorPage::paginate($query->orderBy(...)->orderBy('id'), $request), YourResource::class)` returns `{items, next_cursor, has_more}` from `?limit` (1-100, default 20) and `?cursor`. The ORDER BY must end with a unique column and be index-backed. |
 | **Idempotency keys** | Add `->middleware('idempotent')` to POST routes that create things or have side effects. A client retry with the same `Idempotency-Key` gets the stored 2xx response for 24 h. A different request with the same key gets 422, and a request still in flight gets 409. |
+| **Caller id** | `CallerId::from($request)` returns the signed-in user's id (`401` if there is none). Use it instead of `$request->user()`, so modules don't depend on the Auth module's user class. |
 | **OpenAPI** | Generated from code by Scramble for routes under `/v1`. Export with `make openapi` (writes `api/openapi.json`, committed so PRs show API diffs). In local env the UI is at `/docs/api`. |
 
 ## Limits worth knowing

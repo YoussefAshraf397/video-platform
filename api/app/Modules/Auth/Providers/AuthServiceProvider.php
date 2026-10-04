@@ -3,6 +3,7 @@
 namespace App\Modules\Auth\Providers;
 
 use App\Modules\Auth\Console\GenerateJwtKeysCommand;
+use App\Modules\Auth\Listeners\RevokeAccessOnSuspension;
 use App\Modules\Auth\Services\AccessTokenGuard;
 use App\Modules\Auth\Services\AccessTokens;
 use App\Modules\Auth\Services\LaravelClock;
@@ -12,9 +13,11 @@ use App\Modules\Auth\Services\Registration;
 use App\Modules\Auth\Services\Revocations;
 use App\Modules\Auth\Services\Sessions;
 use App\Modules\Users\Contracts\UserDirectory;
+use App\Modules\Users\Events\UserSuspended;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -51,6 +54,7 @@ final class AuthServiceProvider extends ServiceProvider
     {
         $this->defineRateLimits();
         Auth::viaRequest('jwt', fn ($request) => $this->app->make(AccessTokenGuard::class)($request));
+        Event::listen(UserSuspended::class, RevokeAccessOnSuspension::class);
 
         $this->loadMigrationsFrom(__DIR__.'/../Database/Migrations');
         $this->loadRoutesFrom(__DIR__.'/../routes.php');
