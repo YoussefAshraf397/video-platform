@@ -2,6 +2,7 @@
 
 namespace App\Modules\Videos\Models;
 
+use App\Modules\Videos\Contracts\VideoStatus;
 use App\Modules\Videos\Database\Factories\VideoFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -28,6 +29,8 @@ use Illuminate\Support\Carbon;
  * @property bool $comments_enabled
  * @property Carbon|null $published_at
  * @property int $state_version
+ * @property string|null $pre_block_status
+ * @property string|null $blocked_reason
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
@@ -71,7 +74,7 @@ final class Video extends Model
     public function isVisibleToPublic(): bool
     {
         return $this->deleted_at === null
-            && $this->status === 'published'
+            && $this->status === VideoStatus::Published->value
             && in_array($this->visibility, ['public', 'unlisted'], true)
             && $this->moderation_status !== 'blocked';
     }

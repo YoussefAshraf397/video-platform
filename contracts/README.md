@@ -1,6 +1,6 @@
 # Message contracts
 
-JSON Schemas (draft 2020-12) for every message that crosses the Laravel ↔ Go boundary ([ADR-005](../docs/adr/ADR-005-messaging-sqs-sns.md)). Both test suites validate against them, so a producer that drifts from its contract fails CI on either side.
+JSON Schemas (draft 2020-12) for every message that crosses the Laravel ↔ Go boundary, and for the domain events other consumers subscribe to ([ADR-005](../docs/adr/ADR-005-messaging-sqs-sns.md)). Both test suites validate against them, so a producer that drifts from its contract fails CI on either side.
 
 ## Layout
 
@@ -23,6 +23,7 @@ PHP validation lives in [api/tests/Support/Contracts.php](../api/tests/Support/C
 | `video-rendition-ready.v1` | media-worker → api | `media-results` | Another rendition is playable; the first one makes the video READY |
 | `video-processing-completed.v1` | media-worker → api | `media-results` | All renditions, master playlist and thumbnails are written |
 | `video-processing-failed.v1` | media-worker → api | `media-results` | Processing stopped for good (non-retryable error, or retries exhausted) |
+| `video-state-changed.v1` | api → subscribers | topic `video-events` | A video changed status, one per transition. `event_type` is `VideoUploaded`, `VideoPublished`, `VideoUnpublished`, `VideoBlocked`, `VideoDeleted` or `VideoStateChanged` |
 
 ## Envelope fields
 

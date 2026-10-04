@@ -1,0 +1,18 @@
+{
+  "event_id": "0199b1f5-0002-7c3e-9d41-2f6b8a1c0e03",
+  "event_type": "VideoUploaded",
+  "schema_version": 1,
+  "occurred_at": "2026-10-04T12:01:00.000Z",
+  "producer": "api",
+  "aggregate_type": "video",
+  "aggregate_id": "0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01",
+  "aggregate_version": 4,
+  "trace_id": null,
+  "payload": {
+    "video_id": "0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01",
+    "public_id": "y4S2byb8ju0",
+    "from": "uploading",
+    "to": "uploaded",
+    "reason": "upload_completed"
+  }
+}

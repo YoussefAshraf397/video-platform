@@ -2,6 +2,9 @@
 
 namespace App\Modules\Videos\Services;
 
+use App\Modules\Videos\Contracts\IllegalVideoTransition;
+use App\Modules\Videos\Contracts\VideoLifecycle;
+use App\Modules\Videos\Contracts\VideoStatus;
 use App\Modules\Videos\Models\Category;
 use App\Modules\Videos\Models\Video;
 use App\Platform\Api\Errors\ApiProblem;
@@ -14,11 +17,13 @@ use Normalizer;
  * Video records: create, read with access rules, change metadata, delete.
  *
  * Every write bumps `state_version` with a conditional update on the version the caller last
- * saw (the ETag), so concurrent edits can't overwrite each other. Status transitions (upload,
- * processing, publish) belong to the state machine (S3-02), not here.
+ * saw (the ETag), so concurrent edits can't overwrite each other. Status changes go through
+ * VideoLifecycle (VideoStateMachine), never through here.
  */
 final class Videos
 {
+    public function __construct(private readonly VideoLifecycle $lifecycle) {}
+
     public const MAX_TAGS = 30;
 
     public const MAX_TAG_LENGTH = 50;
@@ -111,17 +116,13 @@ final class Videos
         });
     }
 
-    /** Soft delete; the purge saga (EPIC-07) removes the bytes later. `$expectedVersion` is optional. */
+    /** Soft delete through the state machine; the purge job (EPIC-07) removes the bytes later. `$expectedVersion` is optional. */
     public function delete(Video $video, ?int $expectedVersion): void
     {
-        $updated = Video::query()
-            ->whereKey($video->id)
-            ->whereNull('deleted_at')
-            ->when($expectedVersion !== null, fn ($q) => $q->where('state_version', $expectedVersion))
-            ->update(['status' => 'deleted', 'deleted_at' => now(), 'updated_at' => now(), 'state_version' => DB::raw('state_version + 1')]);
-
-        if ($updated === 0) {
-            throw $expectedVersion !== null ? Preconditions::failed() : self::notFound();
+        try {
+            $this->lifecycle->transition($video->id, VideoStatus::Deleted, 'owner_deleted', $expectedVersion);
+        } catch (IllegalVideoTransition) {
+            throw self::notFound();   // deleted by a concurrent request
         }
     }
 

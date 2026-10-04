@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.video-platform.internal/video-state-changed.v1.json",
+  "title": "VideoStateChanged (and its named variants)",
+  "description": "From the api (topic: video-events): a video changed status. Exactly one per transition. Transitions other modules react to get their own event_type, so subscriptions can filter on the event_type message attribute; all share this payload.",
+  "allOf": [{ "$ref": "envelope.v1.json" }],
+  "properties": {
+    "event_type": { "enum": ["VideoStateChanged", "VideoUploaded", "VideoPublished", "VideoUnpublished", "VideoBlocked", "VideoDeleted"] },
+    "schema_version": { "const": 1 },
+    "producer": { "const": "api" },
+    "aggregate_type": { "const": "video" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["video_id", "public_id", "from", "to", "reason"],
+      "properties": {
+        "video_id": { "$ref": "common.v1.json#/$defs/uuid" },
+        "public_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{11}$" },
+        "from": { "$ref": "#/$defs/status" },
+        "to": { "$ref": "#/$defs/status" },
+        "reason": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "maxLength": 64, "description": "Machine-readable cause, e.g. upload_completed, owner_deleted." }
+      }
+    }
+  },
+  "$defs": {
+    "status": {
+      "description": "Design doc §12.1. Consumers must tolerate states added later.",
+      "enum": [
+        "draft", "upload_pending", "uploading", "uploaded", "validating", "queued_for_processing", "processing",
+        "ready", "published", "unpublished", "upload_failed", "processing_failed", "rejected", "blocked", "deleted", "purged"
+      ]
+    }
+  }
+}
