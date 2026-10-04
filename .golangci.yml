@@ -13,8 +13,9 @@ linters:
     - unconvert
   exclusions:
     rules:
-      # Tests read fixture files by name (G304); that is not attacker-controlled input.
-      - path: _test\.go
+      # Tests and the test-only corpus package read and write fixture files from fixed
+      # definitions; that is not attacker-controlled input.
+      - path: (_test\.go|internal/testcorpus/)
         linters: [gosec]
 
 formatters:

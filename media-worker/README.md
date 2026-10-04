@@ -13,6 +13,7 @@ internal/sqsworker/    SQS consume loop: heartbeat, ack/release, graceful shutdo
 internal/jobs/         validates MediaProcessRequested against ../contracts and decodes it
 internal/media/        ffprobe wrapper (typed Result) and upload validation rules with rejection codes
 internal/telemetry/    slog JSON logger, OpenTelemetry tracer provider
+internal/testcorpus/   golden corpus of source videos + expected outcomes (test-only)
 ```
 
 ## Running locally
@@ -26,7 +27,7 @@ AWS_ENDPOINT_URL=http://localhost:4566 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_
 
 Tests: `make test-worker` from the repo root.
 - The SQS tests use the local stack and skip if `AWS_ENDPOINT_URL` is unset.
-- The probe tests need `ffmpeg`/`ffprobe` on PATH. They generate their sample videos at test time and skip without FFmpeg, except in CI, where they fail.
+- The probe tests need `ffmpeg`/`ffprobe` on PATH. They use the [golden corpus](internal/testcorpus/CORPUS.md), generated on first use and cached in the OS temp directory. They skip without FFmpeg, except in CI, where they fail.
 
 ## Configuration
 
@@ -76,3 +77,11 @@ Other errors (ffprobe missing, file unreadable) are infrastructure problems and 
 2. ffprobe runs with **`-format_whitelist`** (those demuxers only) and **`-protocol_whitelist file`**.
 
 A test proves the second guard on its own: without it, ffprobe follows a playlist to another local file.
+
+## Golden corpus (`internal/testcorpus`)
+
+[CORPUS.md](internal/testcorpus/CORPUS.md) lists 23 source videos and the outcome the worker must produce for each.
+- **15 accepted:** 16:9, 9:16, 4:3, 4K, 60 fps, VFR, rotated phone video, HDR10, anamorphic DVD, interlaced, 5.1 audio, WebM/VP9, MOV, AVI/MPEG-4, MPEG-TS.
+- **8 rejected:** audio only, audio with cover art, too small, too short, FLV, truncated, renamed text file, malicious playlist.
+
+Expectations live as data in `corpus.go`, so later stages (the transcoder in S2-10 checks each sample's `MVPLadder`) test against the same table. `CORPUS.md` is generated from it, and a test fails when the doc is stale.
