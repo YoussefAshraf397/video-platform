@@ -93,7 +93,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: [contracts]   # add media-worker in S1-10
+        module: [contracts, media-worker]
     defaults:
       run:
         working-directory: ${{ matrix.module }}
@@ -109,8 +109,18 @@ jobs:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
           working-directory: ${{ matrix.module }}
           args: --config=${{ github.workspace }}/.golangci.yml
+      - name: Start local stack (SQS integration tests)
+        if: matrix.module == 'media-worker'
+        working-directory: .
+        run: make up
       - name: Tests
         run: go test -race ./...
+        env:
+          # Only media-worker uses these; its SQS tests skip when AWS_ENDPOINT_URL is unset.
+          AWS_ENDPOINT_URL: http://localhost:4566
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_REGION: us-east-1
       - name: Dependency vulnerabilities (govulncheck)
         uses: golang/govulncheck-action@v1
         with:
