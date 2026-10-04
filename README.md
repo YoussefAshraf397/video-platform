@@ -34,4 +34,4 @@ make up      # PostgreSQL, Redis, S3/SQS/SNS emulator, Mailpit
 make check   # verify everything is reachable
 ```
 
-Ports, credentials and AWS resources are listed in [docker/README.md](docker/README.md). The Laravel app arrives with S1-04 and the Go worker with S1-10. Each will add its own `make test` target.
+Ports, credentials and AWS resources are listed in [docker/README.md](docker/README.md). To set up the Laravel app see [api/README.md](api/README.md), then run `make test`. The Go worker arrives with S1-10.

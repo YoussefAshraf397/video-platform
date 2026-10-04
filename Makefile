@@ -1,6 +1,6 @@
 COMPOSE := docker compose -f docker/compose.yaml
 
-.PHONY: help up down reset ps logs aws-init check psql
+.PHONY: help up down reset ps logs aws-init check psql test test-api
 
 help: ## List available targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-10s %s\n", $$1, $$2}'
@@ -29,3 +29,8 @@ check: ## Verify all services and AWS resources are reachable
 
 psql: ## Open a psql shell on the dev database
 	$(COMPOSE) exec postgres psql -U videoplatform -d videoplatform
+
+test: test-api ## Run all test suites (needs `make up`)
+
+test-api: ## Run the Laravel test suites
+	cd api && php artisan test
