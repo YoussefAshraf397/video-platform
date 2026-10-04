@@ -3,6 +3,7 @@
 namespace App\Modules\Uploads\Http\Controllers;
 
 use App\Modules\Uploads\Models\UploadSession;
+use App\Modules\Uploads\Services\UploadCompletion;
 use App\Modules\Uploads\Services\UploadSessions;
 use App\Modules\Videos\Contracts\VideoDirectory;
 use App\Platform\Api\Http\CallerId;
@@ -52,6 +53,27 @@ final class UploadController
         return new JsonResponse(['parts' => $this->sessions->sign($callerId, $upload, array_values(array_map('intval', $input['part_numbers'])))]);
     }
 
+    /** Idempotent: retries (with or without the same Idempotency-Key) get the same result. */
+    public function complete(Request $request, string $upload, UploadCompletion $completion): JsonResponse
+    {
+        $callerId = CallerId::from($request);
+        KnownFields::assert($request, ['parts']);
+        $input = $request->validate([
+            'parts' => ['bail', 'required', 'array', 'list', 'max:10000'],
+            'parts.*' => ['bail', 'required', 'array:part_number,etag'],
+            'parts.*.part_number' => ['bail', 'required', 'integer', 'min:1', 'max:10000'],
+            'parts.*.etag' => ['bail', 'required', 'string', 'max:66'],
+        ]);
+
+        $parts = array_values(array_map(fn (array $p) => ['part_number' => (int) $p['part_number'], 'etag' => (string) $p['etag']], $input['parts']));
+        $session = $completion->complete($callerId, $upload, $parts);
+
+        return new JsonResponse([
+            ...$this->present($session),
+            'video_status' => $this->videos->find($session->video_id)?->status->value,
+        ]);
+    }
+
     public function show(Request $request, string $upload): JsonResponse
     {
         $status = $this->sessions->status(CallerId::from($request), $upload);
@@ -82,6 +104,7 @@ final class UploadController
             'part_size_bytes' => $session->part_size_bytes,
             'total_parts' => $session->total_parts,
             'expires_at' => $session->expires_at->toIso8601ZuluString(),
+            'completed_at' => $session->completed_at?->toIso8601ZuluString(),
             'created_at' => $session->created_at?->toIso8601ZuluString(),
         ];
     }

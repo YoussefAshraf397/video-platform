@@ -244,11 +244,16 @@ final class UploadSessions
         $session->refresh();
     }
 
-    /** Moves a live session to a final status and the video to upload_failed, then aborts in S3. */
-    private function end(UploadSession $session, string $status, string $reason): bool
+    /**
+     * Moves a session from one of `$from` to a final status and the video to upload_failed, then
+     * aborts in S3. False if the session had already left `$from`.
+     *
+     * @param  list<string>  $from
+     */
+    public function end(UploadSession $session, string $status, string $reason, array $from = UploadSession::ACTIVE): bool
     {
-        $ended = DB::transaction(function () use ($session, $status, $reason) {
-            $updated = UploadSession::query()->whereKey($session->id)->whereIn('status', UploadSession::ACTIVE)
+        $ended = DB::transaction(function () use ($session, $status, $reason, $from) {
+            $updated = UploadSession::query()->whereKey($session->id)->whereIn('status', $from)
                 ->update(['status' => $status, 'failure_reason' => $reason, 'updated_at' => now()]);
             if ($updated === 0) {
                 return false;
@@ -301,13 +306,13 @@ final class UploadSessions
             $sessionId ? "Resume upload {$sessionId} with GET /v1/uploads/{$sessionId}, or cancel it." : null);
     }
 
-    private static function notUploadable(?VideoStatus $status): ApiProblem
+    public static function notUploadable(?VideoStatus $status): ApiProblem
     {
         return new ApiProblem(409, 'VIDEO_NOT_UPLOADABLE', 'This video cannot receive an upload',
             $status ? "The video is {$status->value}." : null);
     }
 
-    private static function notActive(UploadSession $session): ApiProblem
+    public static function notActive(UploadSession $session): ApiProblem
     {
         return new ApiProblem(409, 'UPLOAD_NOT_ACTIVE', 'This upload is no longer active', "The upload is {$session->status}.");
     }

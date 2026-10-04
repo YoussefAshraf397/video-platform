@@ -70,18 +70,38 @@ final class ObjectStore
     }
 
     /**
+     * Joins the parts into the final object.
+     *
      * @param  list<array{part_number: int, etag: string}>  $parts  in ascending part order
-     * @return array{etag: string, size_bytes: int}
+     *
+     * @throws S3Exception NoSuchUpload if it was already completed (or aborted)
      */
-    public function completeMultipartUpload(string $bucket, string $key, string $uploadId, array $parts): array
+    public function completeMultipartUpload(string $bucket, string $key, string $uploadId, array $parts): void
     {
         $this->s3->completeMultipartUpload([
             'Bucket' => $bucket, 'Key' => $key, 'UploadId' => $uploadId,
             'MultipartUpload' => ['Parts' => array_map(fn (array $p) => ['PartNumber' => $p['part_number'], 'ETag' => $p['etag']], $parts)],
         ]);
-        $head = $this->s3->headObject(['Bucket' => $bucket, 'Key' => $key]);
+    }
+
+    /** @return array{etag: string, size_bytes: int}|null null if there is no such object */
+    public function head(string $bucket, string $key): ?array
+    {
+        try {
+            $head = $this->s3->headObject(['Bucket' => $bucket, 'Key' => $key]);
+        } catch (S3Exception $e) {
+            if ($e->getStatusCode() === 404) {
+                return null;
+            }
+            throw $e;
+        }
 
         return ['etag' => (string) $head['ETag'], 'size_bytes' => (int) $head['ContentLength']];
+    }
+
+    public function delete(string $bucket, string $key): void
+    {
+        $this->s3->deleteObject(['Bucket' => $bucket, 'Key' => $key]);
     }
 
     /** Idempotent: an upload that is already gone counts as aborted. */

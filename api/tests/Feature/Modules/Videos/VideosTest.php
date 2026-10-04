@@ -4,7 +4,6 @@ use App\Modules\Videos\Models\Video;
 use App\Modules\Videos\Services\Videos;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Tests\Support\Auth;
 
 uses(RefreshDatabase::class);
@@ -15,12 +14,6 @@ beforeEach(function () {
     $this->asAda = ['Authorization' => 'Bearer '.Auth::login($this, 'ada@example.com')['access_token']];
     $this->asEve = ['Authorization' => 'Bearer '.Auth::login($this, 'eve@example.com')['access_token']];
 });
-
-/** POST /v1/videos needs an Idempotency-Key. */
-function withKey(array $headers): array
-{
-    return [...$headers, 'Idempotency-Key' => (string) Str::uuid()];
-}
 
 function adaVideo(array $state = []): Video
 {

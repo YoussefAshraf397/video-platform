@@ -9,11 +9,28 @@ Direct-to-S3 multipart uploads ([ADR-003](../../../../docs/adr/ADR-003-direct-to
 | `POST /v1/videos/{video}/uploads` | Body `{size_bytes, content_type, sha256?}`, plus an `Idempotency-Key` header. Creates the S3 multipart upload and returns `201` with the session and URLs for the first 20 parts. Video → `upload_pending`. |
 | `POST /v1/uploads/{id}/parts:sign` | Body `{part_numbers: [..]}` (up to 100). Returns `{parts: [{part_number, size_bytes, url, expires_at}]}`. The first call moves the session to `in_progress` and the video to `uploading`. |
 | `GET /v1/uploads/{id}` | **Resume.** Status, `uploaded_parts` (from S3 ListParts, since S3 is the truth for parts) and `next_parts` (fresh URLs for the next 20 missing parts). |
+| `POST /v1/uploads/{id}:complete` | Body `{parts: [{part_number, etag}]}` listing every part once, plus an `Idempotency-Key` header. Verifies and assembles the file. Session → `completed`, video → `uploaded`, `VideoUploaded` via the outbox. `200` with `video_status`. |
 | `DELETE /v1/uploads/{id}` | Cancel: session → `aborted`, video → `upload_failed` (a new session can start), S3 upload aborted. `204`. |
 
-All endpoints are owner-only. Someone else's session is a `404 UPLOAD_NOT_FOUND`. Completion (`:complete`, which takes the video to `uploaded`) is S3-04.
+All endpoints are owner-only. Someone else's session is a `404 UPLOAD_NOT_FOUND`.
 
-**Client loop:** create → PUT each part's bytes to its `url` (3–6 in parallel) and keep each response's `ETag` → ask `parts:sign` for more URLs as needed → after a crash or restart, `GET` the session and carry on from `next_parts`. `size_bytes` on each part tells the client exactly how many bytes to send.
+**Client loop:** create → PUT each part's bytes to its `url` (3–6 in parallel) and keep each response's `ETag` → ask `parts:sign` for more URLs as needed → after a crash or restart, `GET` the session and carry on from `next_parts` (it also returns the ETags S3 has) → `:complete` with every part's ETag. `size_bytes` on each part tells the client exactly how many bytes to send.
+
+## Completion
+
+`Services\UploadCompletion`, in four steps:
+
+1. **Claim.** One conditional update moves the session to `completing`. A concurrent call gets `409 UPLOAD_COMPLETING` ("retry in a few seconds"). A call after success gets `200` with the same result, whatever its `Idempotency-Key`. If a call crashed mid-way, its claim can be taken over after 2 minutes.
+2. **Verify against S3 (ListParts).**
+   - The client must list parts 1..N exactly once (`422 INVALID_PART_LIST`).
+   - A part S3 doesn't have yet: `409 PARTS_MISSING`, listing them. The session is handed back unchanged so the client can upload them and retry.
+   - A client ETag that differs from S3's, or a part of the wrong size: the upload **fails** (`422 UPLOAD_FAILED`, `failure_reason` `upload_etag_mismatch` / `upload_size_mismatch`). The video goes to `upload_failed`, the S3 upload is aborted, and the creator starts a new upload. This is also where part sizes are enforced, since presigned URLs can't limit them.
+3. **Complete in S3**, then HEAD the object: its size must equal the declared size (a wrong size fails it and deletes the object). If S3 says the upload no longer exists because an earlier call completed it and then crashed, the object is checked and used.
+4. **One transaction:** session `completed`, video → `uploaded` (stepping through `uploading` if the client never asked for more URLs), and one `VideoUploaded`. If the video was deleted or blocked meanwhile, the session still completes but the video doesn't move (§12.3), so there's no `VideoUploaded`.
+
+**Exactly one `VideoUploaded`**, guarded three times: the claim, the conditional `completing → completed` update, and the state machine (a second `uploading → uploaded` is illegal). `ConcurrentCompletionTest` runs 6 separate processes completing the same upload at the same moment: one `ok`, the rest `UPLOAD_COMPLETING`, one event. With the claim removed, the single-process tests catch it. With the claim and the finish guard both removed, the state machine still keeps it to one event.
+
+Responses that the idempotency middleware doesn't store (`409`, `422`) are recomputed from state on retry, so a retry always reflects what actually happened.
 
 ## Rules at creation
 
@@ -44,7 +61,9 @@ Part size is `max(8 MiB, size / 9000)` rounded up to a whole MiB, so even 100 Gi
 
 ## Not yet built
 
-- `:complete` and size/ETag verification (S3-04), the sweeper and the S3-event reconciliation (S3-05).
+- The expiry sweeper and the S3-event reconciliation (S3-05); a session stuck in `completing` with no retry is also theirs to finish.
+- Whole-file SHA-256 (`sha256`) is stored but only checked by the worker, which reads the file anyway (§10.7).
+- Completing a 9,000-part upload can outlast the idempotency middleware's 60-second in-flight lock. A same-key retry during that window gets `409` from the claim, so this is safe, but the lock should be raised if large completes become common.
 - A session whose video is deleted mid-upload stops getting URLs (`409`) but stays live until the sweeper ends it.
 - Bucket IaC for AWS with CORS and the 7-day lifecycle rule (S2-09). Locally, `docker/aws/init.sh` creates the bucket with CORS that exposes `ETag`.
 - A byte-based daily quota (only session count today) and per-tier size limits (GROWTH).

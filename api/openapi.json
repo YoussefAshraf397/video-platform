@@ -1721,6 +1721,12 @@
                                         "expires_at": {
                                             "type": "string"
                                         },
+                                        "completed_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
                                         "created_at": {
                                             "type": [
                                                 "string",
@@ -1749,6 +1755,7 @@
                                         "part_size_bytes",
                                         "total_parts",
                                         "expires_at",
+                                        "completed_at",
                                         "created_at",
                                         "uploaded_parts",
                                         "next_parts"
@@ -2076,6 +2083,261 @@
                 }
             }
         },
+        "/uploads/{upload}:complete": {
+            "post": {
+                "operationId": "upload.complete",
+                "summary": "Idempotent: retries (with or without the same Idempotency-Key) get the same result",
+                "tags": [
+                    "Upload"
+                ],
+                "parameters": [
+                    {
+                        "name": "upload",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "parts": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "part_number": {
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "maximum": 10000
+                                                },
+                                                "etag": {
+                                                    "type": "string",
+                                                    "maxLength": 66
+                                                }
+                                            },
+                                            "required": [
+                                                "part_number",
+                                                "etag"
+                                            ]
+                                        },
+                                        "minItems": 1,
+                                        "maxItems": 10000
+                                    }
+                                },
+                                "required": [
+                                    "parts"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "video_id": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "size_bytes": {
+                                            "type": "integer"
+                                        },
+                                        "content_type": {
+                                            "type": "string"
+                                        },
+                                        "part_size_bytes": {
+                                            "type": "integer"
+                                        },
+                                        "total_parts": {
+                                            "type": "integer"
+                                        },
+                                        "expires_at": {
+                                            "type": "string"
+                                        },
+                                        "completed_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "created_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "video_status": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "video_id",
+                                        "status",
+                                        "size_bytes",
+                                        "content_type",
+                                        "part_size_bytes",
+                                        "total_parts",
+                                        "expires_at",
+                                        "completed_at",
+                                        "created_at",
+                                        "video_status"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "URI identifying the problem type."
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "examples": [
+                                                422
+                                            ]
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "description": "Stable machine-readable error code."
+                                        },
+                                        "request_id": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string"
+                                                    },
+                                                    "code": {
+                                                        "type": "string"
+                                                    },
+                                                    "message": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "code",
+                                                    "message"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "URI identifying the problem type."
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "examples": [
+                                                401
+                                            ]
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "description": "Stable machine-readable error code."
+                                        },
+                                        "request_id": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string"
+                                                    },
+                                                    "code": {
+                                                        "type": "string"
+                                                    },
+                                                    "message": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "code",
+                                                    "message"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/uploads/{upload}": {
             "get": {
                 "operationId": "upload.show",
@@ -2127,6 +2389,12 @@
                                         "expires_at": {
                                             "type": "string"
                                         },
+                                        "completed_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
                                         "created_at": {
                                             "type": [
                                                 "string",
@@ -2149,6 +2417,7 @@
                                         "part_size_bytes",
                                         "total_parts",
                                         "expires_at",
+                                        "completed_at",
                                         "created_at",
                                         "uploaded_parts",
                                         "next_parts"
