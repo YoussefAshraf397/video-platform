@@ -21,3 +21,7 @@
 .terraform/
 *.tfstate
 *.tfstate.*
+
+# Terraform: account-specific values stay local (examples are committed)
+infra/**/backend.hcl
+infra/**/terraform.tfvars

@@ -1,0 +1,4 @@
+# Copy to backend.hcl (gitignored) and fill in from `terraform output` in infra/bootstrap.
+bucket     = "video-platform-tfstate-111111111111"
+region     = "eu-west-1"
+kms_key_id = "arn:aws:kms:eu-west-1:111111111111:key/00000000-0000-0000-0000-000000000000"

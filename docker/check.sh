@@ -2,7 +2,11 @@
 # Verifies every local service is reachable and the AWS resources exist (`make check`).
 set -eu
 
-COMPOSE="docker compose -f $(dirname "$0")/compose.yaml"
+COMPOSE_FILE="$(dirname "$0")/compose.yaml"
+
+compose() {
+  docker compose -f "$COMPOSE_FILE" "$@"
+}
 fail=0
 
 check() {
@@ -17,7 +21,7 @@ check() {
 }
 
 aws_cli() {
-  $COMPOSE run --rm --no-deps --entrypoint aws aws-init "$@"
+  compose run --rm --no-deps --entrypoint aws aws-init "$@"
 }
 
 queue_with_dlq_exists() {
@@ -29,9 +33,9 @@ topic_exists() {
 }
 
 echo "Checking local stack:"
-check "postgres: videoplatform"      $COMPOSE exec -T postgres psql -U videoplatform -d videoplatform -c 'select 1'
-check "postgres: videoplatform_test" $COMPOSE exec -T postgres psql -U videoplatform -d videoplatform_test -c 'select 1'
-check "redis"                        $COMPOSE exec -T redis redis-cli ping
+check "postgres: videoplatform"      compose exec -T postgres psql -U videoplatform -d videoplatform -c 'select 1'
+check "postgres: videoplatform_test" compose exec -T postgres psql -U videoplatform -d videoplatform_test -c 'select 1'
+check "redis"                        compose exec -T redis redis-cli ping
 check "mailpit UI (port ${MAILPIT_UI_PORT:-8025})" curl -fsS "http://localhost:${MAILPIT_UI_PORT:-8025}/api/v1/info"
 for bucket in uploads media images; do
   check "s3 bucket: $bucket"         aws_cli s3api head-bucket --bucket "$bucket"

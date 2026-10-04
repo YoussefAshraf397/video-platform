@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars (gitignored) and fill in.
+aws_region        = "eu-west-1"
+github_repository = "your-org/video-platform"
+prod_account_id   = ""
+state_bucket      = "video-platform-tfstate-111111111111"
+state_kms_key_arn = "arn:aws:kms:eu-west-1:111111111111:key/00000000-0000-0000-0000-000000000000"

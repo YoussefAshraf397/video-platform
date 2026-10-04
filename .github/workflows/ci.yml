@@ -175,10 +175,27 @@ jobs:
         if: failure()
         run: docker logs api
 
+  infra:
+    name: Terraform
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            ~/.tflint.d
+          key: terraform-${{ hashFiles('infra/**/.terraform.lock.hcl', 'infra/.tflint.hcl') }}
+      - name: fmt, validate, tflint
+        run: make tf-check
+      - name: Apply, re-plan and destroy envs/dev on a local AWS emulator
+        run: make tf-emulator-test
+
   ci-passed:
     name: CI passed
     if: always()
-    needs: [php-quality, php-tests, go, security, api-image]
+    needs: [php-quality, php-tests, go, security, api-image, infra]
     runs-on: ubuntu-24.04
     steps:
       - name: Every required job succeeded
