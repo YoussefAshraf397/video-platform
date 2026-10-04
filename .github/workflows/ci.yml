@@ -109,6 +109,9 @@ jobs:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
           working-directory: ${{ matrix.module }}
           args: --config=${{ github.workspace }}/.golangci.yml
+      - name: Install FFmpeg (probe tests generate sample videos)
+        if: matrix.module == 'media-worker'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
       - name: Start local stack (SQS integration tests)
         if: matrix.module == 'media-worker'
         working-directory: .

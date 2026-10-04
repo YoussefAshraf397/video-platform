@@ -22,7 +22,7 @@
           "properties": {
             "code": {
               "$ref": "common.v1.json#/$defs/errorCode",
-              "description": "e.g. SOURCE_NOT_FOUND, NOT_A_VIDEO, NO_VIDEO_STREAM, UNSUPPORTED_CODEC, DURATION_TOO_LONG, RESOLUTION_OUT_OF_RANGE, CORRUPT_SOURCE, ENCODER_FAILED, RETRIES_EXHAUSTED. New codes may be added; consumers must handle unknown ones."
+              "description": "e.g. SOURCE_NOT_FOUND, NOT_A_VIDEO, CORRUPT_SOURCE, NO_VIDEO_STREAM, UNSUPPORTED_CODEC, ENCRYPTED_SOURCE, DURATION_TOO_SHORT, DURATION_TOO_LONG, RESOLUTION_OUT_OF_RANGE, ENCODER_FAILED, RETRIES_EXHAUSTED. New codes may be added; consumers must handle unknown ones."
             },
             "message": { "type": "string", "maxLength": 1000, "description": "For logs and the admin console. Not shown to creators verbatim." },
             "retryable": { "type": "boolean", "description": "true when retrying the same source could succeed (e.g. after a worker fix)." }

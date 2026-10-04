@@ -2,7 +2,7 @@
 
 Consumes `MediaProcessRequested` jobs from the `media-process` SQS queue ([ADR-006](../docs/adr/ADR-006-transcoding-go-ffmpeg.md)). The worker never touches PostgreSQL; it will report results to `media-results` (S3-08).
 
-**Status (S1-10):** the skeleton is complete: config, JSON logging, OpenTelemetry, SQS consumption with heartbeat, and graceful shutdown. Jobs are validated and decoded, but media processing isn't wired in yet: probe arrives in S1-11, transcode/package in S2-10/S2-11, and result events in S3-08.
+**Status (S1-11):** the skeleton is complete: config, JSON logging, OpenTelemetry, SQS consumption with heartbeat, and graceful shutdown. Jobs are validated and decoded. The probe and validation library (`internal/media`) is ready but not yet called from a job, because that needs the S3 download (S3-08). Transcode/package arrive in S2-10/S2-11 and result events in S3-08.
 
 ## Layout
 
@@ -11,6 +11,7 @@ cmd/media-worker/      main: wiring, signals
 internal/config/       environment configuration
 internal/sqsworker/    SQS consume loop: heartbeat, ack/release, graceful shutdown
 internal/jobs/         validates MediaProcessRequested against ../contracts and decodes it
+internal/media/        ffprobe wrapper (typed Result) and upload validation rules with rejection codes
 internal/telemetry/    slog JSON logger, OpenTelemetry tracer provider
 ```
 
@@ -23,7 +24,9 @@ AWS_ENDPOINT_URL=http://localhost:4566 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_
   go run ./cmd/media-worker
 ```
 
-Tests: `make test-worker` from the repo root. The SQS tests use the local stack and skip if `AWS_ENDPOINT_URL` is unset.
+Tests: `make test-worker` from the repo root.
+- The SQS tests use the local stack and skip if `AWS_ENDPOINT_URL` is unset.
+- The probe tests need `ffmpeg`/`ffprobe` on PATH. They generate their sample videos at test time and skip without FFmpeg, except in CI, where they fail.
 
 ## Configuration
 
@@ -49,3 +52,27 @@ Tests: `make test-worker` from the repo root. The SQS tests use the local stack 
 | SIGTERM, job still running after `SHUTDOWN_GRACE` | Job context cancelled; message released immediately for another worker |
 
 While a job runs, a heartbeat keeps the message invisible, so long transcodes are never picked up twice. SQS still delivers at least once (e.g. if a delete fails), so processors must be safe to repeat. Output keys are deterministic (ADR-006).
+
+## Probing and validation (`internal/media`)
+
+`Prober.Probe` returns a typed `Result`: duration, size, bitrate, the primary video stream and the audio streams. The video stream includes codec, bit depth, coded and **display** dimensions (after non-square pixels and rotation), rotation, frame rate and VFR, interlacing, colour info and the HDR flag. Cover art (attached pictures) is never counted as video.
+
+`Validate` applies the upload rules (`DefaultLimits`: 1 s to 4 h, short side ≥ 128 px, long side ≤ 7680 px, codec allowlists). Every media problem is a `*Rejection` with a code from the `VideoProcessingFailed` contract and is never retried:
+
+| Code | When |
+|---|---|
+| `NOT_A_VIDEO` | Magic bytes don't match an allowed container (also catches renamed files and playlists) |
+| `CORRUPT_SOURCE` | Looks like a container but FFmpeg can't read it (e.g. truncated upload), probe timeout, or missing duration/dimensions |
+| `NO_VIDEO_STREAM` | Audio only, including audio with cover art |
+| `UNSUPPORTED_CODEC` | Video or audio codec outside the allowlist |
+| `ENCRYPTED_SOURCE` | DRM-protected stream |
+| `DURATION_TOO_SHORT` / `DURATION_TOO_LONG` | Outside 1 s to 4 h |
+| `RESOLUTION_OUT_OF_RANGE` | Short side < 128 px or long side > 7680 px |
+
+Other errors (ffprobe missing, file unreadable) are infrastructure problems and go through the normal retry path.
+
+**Security:** uploads are untrusted input to FFmpeg, so there are two independent guards against formats (HLS playlists, concat lists) that make FFmpeg open other files or URLs:
+1. **Magic-byte sniffing** before ffprobe runs; only MP4/MOV, Matroska/WebM, AVI and MPEG-TS signatures pass.
+2. ffprobe runs with **`-format_whitelist`** (those demuxers only) and **`-protocol_whitelist file`**.
+
+A test proves the second guard on its own: without it, ffprobe follows a playlist to another local file.
