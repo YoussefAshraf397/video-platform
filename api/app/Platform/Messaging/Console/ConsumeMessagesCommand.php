@@ -19,9 +19,7 @@ final class ConsumeMessagesCommand extends Command
 
     public function handle(SqsConsumerRunner $runner): int
     {
-        $consumer = collect(config('messaging.consumers'))
-            ->map(fn (string $class) => app($class))
-            ->first(fn (IdempotentConsumer $c) => $c->name() === $this->argument('consumer'));
+        $consumer = $this->findConsumer((string) $this->argument('consumer'));
 
         if ($consumer === null) {
             $this->error("Unknown consumer [{$this->argument('consumer')}]. Register it in config/messaging.php.");
@@ -29,7 +27,9 @@ final class ConsumeMessagesCommand extends Command
             return self::FAILURE;
         }
 
-        $this->trap([SIGTERM, SIGINT], fn () => $this->stopping = true);
+        $this->trap([SIGTERM, SIGINT], function (): void {
+            $this->stopping = true;
+        });
         $queueUrl = $runner->queueUrl($consumer->name());
 
         while (! $this->stopping) {
@@ -40,5 +40,17 @@ final class ConsumeMessagesCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    private function findConsumer(string $name): ?IdempotentConsumer
+    {
+        foreach ((array) config('messaging.consumers') as $class) {
+            $consumer = is_string($class) ? app($class) : null;
+            if ($consumer instanceof IdempotentConsumer && $consumer->name() === $name) {
+                return $consumer;
+            }
+        }
+
+        return null;
     }
 }

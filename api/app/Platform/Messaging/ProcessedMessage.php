@@ -16,6 +16,8 @@ final class ProcessedMessage extends Model
     /**
      * SQS keeps messages (and DLQ redrives) for at most 14 days, so a duplicate can't
      * arrive after 15 days and older markers can go.
+     *
+     * @return Builder<self>
      */
     public function prunable(): Builder
     {

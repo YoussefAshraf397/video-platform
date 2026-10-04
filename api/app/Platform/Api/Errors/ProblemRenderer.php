@@ -7,6 +7,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Context;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -70,7 +71,7 @@ final class ProblemRenderer
 
         return new ApiProblem(
             $status,
-            strtoupper(trim(preg_replace('/\W+/', '_', $title), '_')),
+            Str::upper(Str::slug($title, '_')),
             $title,
             headers: $e->getHeaders(),
         );

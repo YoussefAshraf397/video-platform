@@ -1,0 +1,25 @@
+# Never ship secrets, local state, or dev-only files in the image.
+.env
+.env.*
+!.env.example
+.git
+.idea
+.vscode
+vendor
+node_modules
+frankenphp
+tests
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*.php
+.phpunit.cache
+.phpunit.result.cache
+phpstan.neon
+phpunit.xml
+openapi.json
+Dockerfile
+.dockerignore
+AGENTS.md
+CLAUDE.md

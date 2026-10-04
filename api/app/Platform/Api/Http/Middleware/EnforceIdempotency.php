@@ -80,7 +80,9 @@ final class EnforceIdempotency
         return $response;
     }
 
-    /** @param array{state: string, fingerprint: string, status?: int, headers?: array<string, string>, body?: string} $stored */
+    /**
+     * @param  array{state: 'in_flight', fingerprint: string}|array{state: 'completed', fingerprint: string, status: int, headers: array<string, string>, body: string}  $stored
+     */
     private function replay(array $stored, string $fingerprint): Response
     {
         if (! hash_equals($stored['fingerprint'], $fingerprint)) {

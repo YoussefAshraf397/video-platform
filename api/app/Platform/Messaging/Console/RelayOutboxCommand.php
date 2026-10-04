@@ -24,7 +24,9 @@ final class RelayOutboxCommand extends Command
 
     public function handle(OutboxRelay $relay): int
     {
-        $this->trap([SIGTERM, SIGINT], fn () => $this->stopping = true);
+        $this->trap([SIGTERM, SIGINT], function (): void {
+            $this->stopping = true;
+        });
         $backoffMs = 0;
 
         while (! $this->stopping) {

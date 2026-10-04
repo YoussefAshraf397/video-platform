@@ -35,3 +35,23 @@ make check   # verify everything is reachable
 ```
 
 Ports, credentials and AWS resources are listed in [docker/README.md](docker/README.md). To set up the Laravel app see [api/README.md](api/README.md), then run `make test`. The Go worker arrives with S1-10.
+
+## CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every PR and on pushes to `main`. All jobs run in parallel (target < 10 min):
+
+| Job | Checks |
+|---|---|
+| PHP lint, static analysis, audit | Pint, PHPStan (Larastan, level 8), `composer audit`, `openapi.json` up to date |
+| PHP tests | `make up` + `make test-api`: unit, feature, architecture and contract tests on the real local stack |
+| Go (per module) | golangci-lint ([`.golangci.yml`](.golangci.yml)), `go test -race`, govulncheck |
+| Secret and dependency scan | gitleaks (full git history), Trivy (lockfiles + Dockerfile misconfiguration) |
+| API image | Docker build, Trivy image scan, container smoke test (liveness, non-root) |
+| **CI passed** | Succeeds only if every job above succeeded. **This is the one required check.** |
+
+Scanners fail on HIGH/CRITICAL issues that have a fix available. Dependabot ([`.github/dependabot.yml`](.github/dependabot.yml)) opens weekly update PRs for Composer, Go modules, the base image and the Actions themselves.
+
+**Branch protection for `main`** (GitHub → Settings → Branches), set up once the repo is on GitHub:
+- Require a pull request with 1 approval and Code Owner review.
+- Require the status check **`CI passed`**, with branches up to date before merging.
+- Block force pushes and deletions.

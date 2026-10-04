@@ -1,0 +1,17 @@
+# Weekly update PRs for dependencies, actions, and base images. Each PR runs full CI.
+version: 2
+updates:
+  - package-ecosystem: composer
+    directory: /api
+    schedule: { interval: weekly }
+    groups:
+      laravel: { patterns: ["laravel/*"] }
+  - package-ecosystem: gomod
+    directory: /contracts
+    schedule: { interval: weekly }
+  - package-ecosystem: docker
+    directory: /api
+    schedule: { interval: weekly }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }

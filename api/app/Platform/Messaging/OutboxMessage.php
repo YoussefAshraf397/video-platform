@@ -26,7 +26,11 @@ final class OutboxMessage extends Model
         ];
     }
 
-    /** Published rows are kept 7 days for debugging, then deleted by `model:prune`. */
+    /**
+     * Published rows are kept 7 days for debugging, then deleted by `model:prune`.
+     *
+     * @return Builder<self>
+     */
     public function prunable(): Builder
     {
         return self::query()->where('published_at', '<', now()->subDays(7));

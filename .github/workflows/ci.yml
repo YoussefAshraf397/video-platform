@@ -1,0 +1,174 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  GITLEAKS_IMAGE: zricethezav/gitleaks:v8.30.1
+  TRIVY_IMAGE: aquasec/trivy:0.75.0
+  GOLANGCI_LINT_VERSION: v2.14.0
+
+jobs:
+  php-quality:
+    name: PHP lint, static analysis, audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_pgsql, pcntl
+          coverage: none
+          tools: composer:v2
+      - id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ hashFiles('api/composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Code style (Pint)
+        run: vendor/bin/pint --test
+      - name: Static analysis (PHPStan level 8)
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+      - name: Dependency vulnerabilities (composer audit)
+        run: composer audit --locked
+      - name: OpenAPI spec is committed and up to date
+        run: |
+          cp .env.example .env && php artisan key:generate
+          php artisan scramble:export
+          git diff --exit-code openapi.json || { echo "::error::openapi.json is stale. Run 'make openapi' and commit it."; exit 1; }
+
+  php-tests:
+    name: PHP tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_pgsql, pcntl
+          coverage: none
+          tools: composer:v2
+      - id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+        working-directory: api
+      - uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ hashFiles('api/composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+        working-directory: api
+      - name: Start local stack (same as developers' `make up`)
+        run: make up
+      - name: Configure app
+        working-directory: api
+        run: cp .env.example .env && php artisan key:generate
+      - name: Tests (unit, feature, architecture, contracts)
+        run: make test-api
+      - name: Stack logs
+        if: failure()
+        run: docker compose -f docker/compose.yaml logs --no-color
+
+  go:
+    name: Go (${{ matrix.module }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [contracts]   # add media-worker in S1-10
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+      - name: Lint (golangci-lint)
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          working-directory: ${{ matrix.module }}
+          args: --config=${{ github.workspace }}/.golangci.yml
+      - name: Tests
+        run: go test -race ./...
+      - name: Dependency vulnerabilities (govulncheck)
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          work-dir: ${{ matrix.module }}
+
+  security:
+    name: Secret and dependency scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # scan the whole history, not just the last commit
+      - name: Secrets (gitleaks, full history)
+        run: docker run --rm -v "$PWD":/repo "$GITLEAKS_IMAGE" git /repo --no-banner --redact --exit-code 1
+      - name: Dependencies and Dockerfile misconfiguration (trivy)
+        run: >
+          docker run --rm -v "$PWD":/src "$TRIVY_IMAGE" fs /src
+          --scanners vuln,misconfig --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
+
+  api-image:
+    name: API image build, scan, smoke test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: Build
+        uses: docker/build-push-action@v7
+        with:
+          context: api
+          load: true
+          tags: videoplatform-api:${{ github.sha }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+      - name: Vulnerability scan (trivy)
+        run: >
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE" image
+          --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 videoplatform-api:${{ github.sha }}
+      - name: Smoke test (container starts, serves liveness, runs as non-root)
+        run: |
+          docker run -d --name api -p 8000:8000 \
+            -e APP_KEY="base64:$(head -c 32 /dev/urandom | base64)" videoplatform-api:${{ github.sha }}
+          for _ in $(seq 1 30); do curl -fsS localhost:8000/health/live && break; sleep 1; done
+          curl -fsS localhost:8000/health/live
+          test "$(docker exec api id -u)" != "0"
+      - name: Container logs
+        if: failure()
+        run: docker logs api
+
+  ci-passed:
+    name: CI passed
+    if: always()
+    needs: [php-quality, php-tests, go, security, api-image]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Every required job succeeded
+        run: |
+          echo '${{ toJSON(needs) }}' | jq -e 'to_entries | all(.value.result == "success")' > /dev/null \
+            || { echo "::error::One or more CI jobs did not succeed."; exit 1; }

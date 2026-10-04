@@ -21,13 +21,13 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  */
 final class ProblemDetailsResponseExtension extends HttpExceptionToResponseExtension
 {
-    public function shouldHandle(Type $type)
+    public function shouldHandle(Type $type): bool
     {
         return $type instanceof ObjectType && $this->status($type) !== null;
     }
 
     /** @param ObjectType $type */
-    public function toResponse(Type $type)
+    public function toResponse(Type $type): Response
     {
         $status = $this->status($type);
 

@@ -24,6 +24,7 @@ final class CursorPage
 
     public const MAX_LIMIT = 100;
 
+    /** @return CursorPaginator<int, mixed> */
     public static function paginate(Builder $query, Request $request, int $defaultLimit = self::DEFAULT_LIMIT): CursorPaginator
     {
         $params = Validator::make($request->query(), [
@@ -41,7 +42,10 @@ final class CursorPage
         );
     }
 
-    /** @param class-string<JsonResource>|null $resource */
+    /**
+     * @param  CursorPaginator<int, mixed>  $page
+     * @param  class-string<JsonResource>|null  $resource
+     */
     public static function response(CursorPaginator $page, ?string $resource = null): JsonResponse
     {
         return new JsonResponse([

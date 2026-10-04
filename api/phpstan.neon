@@ -1,0 +1,11 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+# Tests are excluded: PHPStan can't see Pest's closure binding ($this->getJson(), ...),
+# so they would only produce false positives. Laravel's stock config/ is excluded too.
+parameters:
+    level: 8
+    paths:
+        - app
+        - database
+        - routes

@@ -37,12 +37,14 @@ final class ApiProblem extends RuntimeException
         $messages = $validator->errors();
 
         foreach ($validator->failed() as $field => $failedRules) {
+            $field = (string) $field;   // numeric field names come back as int array keys
             $fieldMessages = $messages->get($field);
             foreach (array_keys($failedRules) as $i => $rule) {
+                $message = $fieldMessages[$i] ?? $fieldMessages[0] ?? null;
                 $errors[] = [
                     'field' => $field,
-                    'code' => Str::upper(Str::snake(class_basename($rule))),
-                    'message' => $fieldMessages[$i] ?? $fieldMessages[0] ?? 'Invalid value.',
+                    'code' => Str::upper(Str::snake(class_basename((string) $rule))),
+                    'message' => is_string($message) ? $message : 'Invalid value.',
                 ];
             }
         }
