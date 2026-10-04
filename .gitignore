@@ -1,0 +1,23 @@
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Secrets and local env files (each app's .env.example is committed)
+.env
+.env.*
+!.env.example
+
+# Local media used for manual testing (golden corpus lives in a bucket, see media-worker/)
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.m4s
+*.m3u8
+
+# Terraform local state and caches
+.terraform/
+*.tfstate
+*.tfstate.*

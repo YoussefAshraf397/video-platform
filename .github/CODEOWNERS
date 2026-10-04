@@ -1,0 +1,10 @@
+# Replace the placeholder handles with real GitHub users or teams once the repo is on GitHub.
+# Go PRs need a Laravel reviewer as well as the Go owner, to spread knowledge (bus-factor mitigation, ADR-006).
+
+*                 @LARAVEL_LEAD
+/api/             @LARAVEL_LEAD @LARAVEL_DEV_2 @LARAVEL_DEV_3
+/media-worker/    @GO_DEV @LARAVEL_LEAD @LARAVEL_DEV_3
+/contracts/       @GO_DEV @LARAVEL_LEAD
+/infra/           @LARAVEL_LEAD
+/docker/          @LARAVEL_LEAD
+/docs/adr/        @LARAVEL_LEAD @GO_DEV
