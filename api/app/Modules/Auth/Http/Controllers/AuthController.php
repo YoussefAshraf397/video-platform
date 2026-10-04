@@ -5,6 +5,7 @@ namespace App\Modules\Auth\Http\Controllers;
 use App\Modules\Auth\Contracts\AuthenticatedUser;
 use App\Modules\Auth\Services\AccessTokens;
 use App\Modules\Auth\Services\Login;
+use App\Modules\Auth\Services\PasswordReset;
 use App\Modules\Auth\Services\Registration;
 use App\Modules\Auth\Services\RotationResult;
 use App\Modules\Auth\Services\Sessions;
@@ -53,13 +54,34 @@ final class AuthController
         return new JsonResponse(['message' => 'If this email needs verifying, we sent a new link.'], 202);
     }
 
+    /** Always 202, whether or not the email has an account. */
+    public function forgotPassword(Request $request, PasswordReset $reset): JsonResponse
+    {
+        $data = $request->validate(['email' => ['required', 'string', 'email:rfc', 'max:254']]);
+        $reset->request($data['email']);
+
+        return new JsonResponse(['message' => 'If an account uses this email, we sent a link to reset the password.'], 202);
+    }
+
+    /** Sets a new password and signs the account out everywhere. The user then signs in again. */
+    public function resetPassword(Request $request, PasswordReset $reset): JsonResponse
+    {
+        $data = $request->validate([
+            'token' => ['required', 'string', 'max:128'],
+            'password' => ['required', 'string', 'min:10', 'max:128'],
+        ]);
+        $reset->reset($data['token'], $data['password']);
+
+        return new JsonResponse(['message' => 'Password changed. Sign in with your new password.']);
+    }
+
     public function login(Request $request, Login $login): JsonResponse
     {
         $data = $request->validate([
             'email' => ['required', 'string', 'max:254'],
             'password' => ['required', 'string', 'max:128'],
         ]);
-        $user = $login->attempt($data['email'], $data['password']);
+        $user = $login->attempt($data['email'], $data['password'], (string) $request->ip());
         $session = $this->sessions->start($user->id, $request->userAgent(), $request->ip());
 
         return $this->tokenResponse($user->id, $session['session_id'], $user->isEmailVerified(), $session['refresh_token'], [

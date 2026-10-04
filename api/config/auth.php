@@ -46,6 +46,11 @@ return [
         'refresh_cookie' => 'refresh_token',
     ],
 
+    'password_reset' => [
+        'ttl_seconds' => 60 * 60,
+        'url' => env('FRONTEND_URL', 'http://localhost:3000').'/reset-password?token=',
+    ],
+
     'email_verification' => [
         'ttl_seconds' => 24 * 3600,
         // Link in the verification email; the frontend posts the token to /v1/auth/email/verify.

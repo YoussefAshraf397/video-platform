@@ -17,7 +17,7 @@ return [
 
     'allowed_headers' => ['Authorization', 'Content-Type', 'Accept', 'Idempotency-Key', 'If-Match', 'X-Request-Id'],
 
-    'exposed_headers' => ['X-Request-Id', 'ETag', 'Location', 'Retry-After', 'RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'Idempotent-Replayed'],
+    'exposed_headers' => ['X-Request-Id', 'ETag', 'Location', 'Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset', 'Idempotent-Replayed'],
 
     'max_age' => 600,
 

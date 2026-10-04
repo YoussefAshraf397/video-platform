@@ -10,7 +10,7 @@ final class AccessTokenGuard
 {
     public function __construct(
         private readonly AccessTokens $tokens,
-        private readonly Sessions $sessions,
+        private readonly Revocations $revocations,
     ) {}
 
     public function __invoke(Request $request): ?AuthenticatedUser
@@ -21,7 +21,7 @@ final class AccessTokenGuard
         }
 
         $claims = $this->tokens->verify($jwt);
-        if ($claims === null || $this->sessions->isRevoked($claims->sessionId)) {
+        if ($claims === null || $this->revocations->isRevoked($claims)) {
             return null;
         }
 

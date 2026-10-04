@@ -16,6 +16,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(AssignRequestId::class);
+        // Behind the load balancer every request comes from its IP; trust X-Forwarded-For only from
+        // proxies listed in TRUSTED_PROXIES ("*" when the app is reachable only through the ALB),
+        // so rate limits and logs see real client IPs. Unset: no proxy is trusted.
+        if (is_string($proxies = env('TRUSTED_PROXIES')) && $proxies !== '') {
+            $middleware->trustProxies(at: $proxies === '*' ? '*' : array_map('trim', explode(',', $proxies)));
+        }
         $middleware->alias(['idempotent' => EnforceIdempotency::class]);
         // An API never redirects unauthenticated callers to a login page; they get a 401 problem.
         $middleware->redirectGuestsTo(fn () => null);

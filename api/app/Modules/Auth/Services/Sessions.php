@@ -4,11 +4,9 @@ namespace App\Modules\Auth\Services;
 
 use DateTimeInterface;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Throwable;
 
 /**
  * Signed-in sessions and their rotating refresh tokens.
@@ -22,7 +20,7 @@ final class Sessions
         private readonly int $refreshTtlSeconds,
         private readonly int $maxLifetimeSeconds,
         private readonly int $reuseGraceSeconds,
-        private readonly int $accessTtlSeconds,
+        private readonly Revocations $revocations,
     ) {}
 
     /** @return array{session_id: string, refresh_token: string} */
@@ -90,7 +88,7 @@ final class Sessions
 
         if ($result->outcome === RotationResult::REUSED && $result->sessionId !== null) {
             // After commit, so the revocation is never rolled back with a failed response.
-            $this->forgetAccessTokens($result->sessionId);
+            $this->revocations->revokeSession($result->sessionId);
             Log::warning('Refresh token reuse detected; session revoked', [
                 'session_id' => $result->sessionId,
                 'user_id' => $result->userId,
@@ -110,7 +108,7 @@ final class Sessions
             ->whereNull('revoked_at')
             ->update(['revoked_at' => now(), 'revoke_reason' => $reason]) === 1;
         if ($revoked) {
-            $this->forgetAccessTokens($sessionId);
+            $this->revocations->revokeSession($sessionId);
         }
 
         return $revoked || DB::table('auth_sessions')->where('id', $sessionId)->where('user_id', $userId)->exists();
@@ -121,7 +119,7 @@ final class Sessions
         $ids = DB::table('auth_sessions')->where('user_id', $userId)->whereNull('revoked_at')->pluck('id');
         DB::table('auth_sessions')->whereIn('id', $ids)->update(['revoked_at' => now(), 'revoke_reason' => $reason]);
         foreach ($ids as $id) {
-            $this->forgetAccessTokens($id);
+            $this->revocations->revokeSession($id);
         }
     }
 
@@ -136,24 +134,6 @@ final class Sessions
             ->orderByDesc('last_used_at')
             ->get()
             ->all());
-    }
-
-    /**
-     * Whether access tokens of this session must be refused. Access tokens are stateless, so
-     * revoked session ids are kept in the cache for one access-token lifetime.
-     *
-     * If the cache is unreachable this fails open: refusing every request would take the API
-     * down, while a revoked token stays usable for at most its remaining minutes.
-     */
-    public function isRevoked(string $sessionId): bool
-    {
-        try {
-            return Cache::has(self::revokedKey($sessionId));
-        } catch (Throwable $e) {
-            Log::warning('Session revocation check unavailable; allowing token', ['error' => $e->getMessage()]);
-
-            return false;
-        }
     }
 
     private function newRefreshToken(string $sessionId, DateTimeInterface $sessionExpiresAt): string
@@ -174,16 +154,6 @@ final class Sessions
     {
         DB::table('auth_sessions')->where('id', $sessionId)->whereNull('revoked_at')
             ->update(['revoked_at' => now(), 'revoke_reason' => $reason]);
-    }
-
-    private function forgetAccessTokens(string $sessionId): void
-    {
-        Cache::put(self::revokedKey($sessionId), true, $this->accessTtlSeconds + 60);
-    }
-
-    private static function revokedKey(string $sessionId): string
-    {
-        return "auth:revoked-session:{$sessionId}";
     }
 
     private static function hash(string $token): string
