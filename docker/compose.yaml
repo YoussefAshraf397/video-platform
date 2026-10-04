@@ -1,0 +1,73 @@
+# Local development stack (S1-03). Start with `make up` from the repo root.
+# AWS services are emulated by Moto (S3, SQS, SNS). Moto keeps state in memory,
+# so resources are re-created by `make aws-init` (run automatically by `make up`).
+name: videoplatform
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: videoplatform
+      POSTGRES_USER: videoplatform
+      POSTGRES_PASSWORD: videoplatform
+    ports:
+      - "${PG_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U videoplatform -d videoplatform"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  aws:
+    image: motoserver/moto:5.2.3
+    ports:
+      - "${AWS_PORT:-4566}:5000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/moto-api/')"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # One-shot job that creates buckets, queues, and topics. Not started by `up`;
+  # `make up` runs it after the emulator is healthy.
+  aws-init:
+    image: amazon/aws-cli:2.37.9
+    profiles: ["tools"]
+    depends_on:
+      aws:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://aws:5000
+    volumes:
+      - ./aws:/init:ro
+    entrypoint: ["sh", "/init/init.sh"]
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:

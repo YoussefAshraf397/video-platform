@@ -27,4 +27,11 @@ Backend for a video-on-demand platform: uploads, processing, HLS playback, engag
 
 ## Getting started
 
-Not set up yet. The local stack (`make up`) lands with sprint 1 ticket S1-03. The Laravel app lands with S1-04, and the Go worker with S1-10.
+Requirements: Docker with Compose v2, and `make`.
+
+```bash
+make up      # PostgreSQL, Redis, S3/SQS/SNS emulator, Mailpit
+make check   # verify everything is reachable
+```
+
+Ports, credentials and AWS resources are listed in [docker/README.md](docker/README.md). The Laravel app arrives with S1-04 and the Go worker with S1-10. Each will add its own `make test` target.
