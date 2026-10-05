@@ -64,6 +64,7 @@ type Expect struct {
 	AudioChannels []int
 	// MVPLadder is the rendition heights (short side) the MVP ladder must produce (ADR-004:
 	// 360/480/720/1080, never above the source). Asserted by the transcoder tests (S2-10).
+	// Every accepted sample must also yield non-black thumbnails (S3-09).
 	MVPLadder []int
 }
 
@@ -165,6 +166,11 @@ var Samples = []Sample{
 		Name: "mpegts_broadcast.ts", Covers: "MPEG-TS from a capture card or recorder",
 		FFmpeg: cat(testPattern("1280x720", "25", "2"), tone, x264, []string{"-c:a", "aac", "-shortest", "-f", "mpegts"}),
 		Expect: Expect{Container: "mpegts", VideoCodec: "h264", Width: 1280, Height: 720, FrameRate: 25, AudioChannels: []int{1}, MVPLadder: upTo720},
+	},
+	{
+		Name: "black_intro.mp4", Covers: "Video that opens on black (fade-in, title card): black for the first 4.5 of 8 s",
+		FFmpeg: cat(testPattern("1280x720", "30", "8"), []string{"-vf", "drawbox=c=black:t=fill:enable='lt(t,4.5)'"}, x264),
+		Expect: Expect{Container: mp4, VideoCodec: "h264", Width: 1280, Height: 720, FrameRate: 30, MVPLadder: upTo720},
 	},
 	{
 		Name: "audio_only.m4a", Covers: "Podcast/music file uploaded as a video",

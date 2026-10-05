@@ -29,6 +29,7 @@ transcoder tests (S2-10) assert it.
 | `interlaced_1080i.mkv` | Broadcast/camcorder 1080i (interlaced) in Matroska | matroska,webm | h264 | 1920x1080 | 25 | interlaced | none | 360p, 480p, 720p, 1080p |
 | `legacy_mpeg4_avi.avi` | Old camera/AVI export with MPEG-4 Part 2 and MP3 | avi | mpeg4 | 640x480 | 25 | — | mono | 360p, 480p |
 | `mpegts_broadcast.ts` | MPEG-TS from a capture card or recorder | mpegts | h264 | 1280x720 | 25 | — | mono | 360p, 480p, 720p |
+| `black_intro.mp4` | Video that opens on black (fade-in, title card): black for the first 4.5 of 8 s | mov,mp4,m4a,3gp,3g2,mj2 | h264 | 1280x720 | 30 | — | none | 360p, 480p, 720p |
 
 ## Rejected
 

@@ -28,6 +28,7 @@ type S3Prefix struct {
 // ProcessRequest is the payload of MediaProcessRequested (contracts/schemas/media-process-requested.v1.json).
 type ProcessRequest struct {
 	EventID           string   `json:"-"`
+	Attempt           int      `json:"-"` // 1 on the first delivery of the message
 	VideoID           string   `json:"video_id"`
 	JobID             string   `json:"job_id"`
 	ProcessingVersion int      `json:"processing_version"`
@@ -66,6 +67,7 @@ func (h *Handler) Handle(ctx context.Context, msg sqsworker.Message) error {
 		return sqsworker.Poison(fmt.Errorf("decode message: %w", err))
 	}
 	envelope.Payload.EventID = envelope.EventID
+	envelope.Payload.Attempt = msg.ReceiveCount
 
 	return h.process(ctx, envelope.Payload)
 }

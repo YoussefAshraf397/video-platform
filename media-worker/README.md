@@ -1,8 +1,8 @@
 # media-worker — Go transcoding service
 
-Consumes `MediaProcessRequested` jobs from the `media-process` SQS queue ([ADR-006](../docs/adr/ADR-006-transcoding-go-ffmpeg.md)). The worker never touches PostgreSQL; it will report results to `media-results` (S3-08).
+Consumes `MediaProcessRequested` jobs from the `media-process` SQS queue and turns each upload into an HLS ladder plus thumbnails ([ADR-004](../docs/adr/ADR-004-hls-cmaf.md), [ADR-006](../docs/adr/ADR-006-transcoding-go-ffmpeg.md)). The worker never touches PostgreSQL; it reports results to `media-results`, and Laravel applies the state changes.
 
-**Status (S1-11):** the skeleton is complete: config, JSON logging, OpenTelemetry, SQS consumption with heartbeat, and graceful shutdown. Jobs are validated and decoded. The probe and validation library (`internal/media`) is ready but not yet called from a job, because that needs the S3 download (S3-08). Transcode/package arrive in S2-10/S2-11 and result events in S3-08.
+**Status:** full pipeline (S2-10, S2-11, S3-08, S3-09): download → probe → validate → transcode and package each rung → upload → results, and thumbnails. Running in AWS is S3-07.
 
 ## Layout
 
@@ -11,7 +11,13 @@ cmd/media-worker/      main: wiring, signals
 internal/config/       environment configuration
 internal/sqsworker/    SQS consume loop: heartbeat, ack/release, graceful shutdown
 internal/jobs/         validates MediaProcessRequested against ../contracts and decodes it
+internal/pipeline/     one job end to end: the order of steps, failure handling, retries
 internal/media/        ffprobe wrapper (typed Result) and upload validation rules with rejection codes
+internal/ladder/       which renditions to make (rungs, sizes, frame rate, bitrates, H.264 level)
+internal/transcode/    FFmpeg encoder + CMAF HLS packaging, master playlist
+internal/thumbs/       thumbnail candidates (25/50/75 %, black frames skipped), JPEG + WebP in 3 sizes
+internal/storage/      streaming S3 download, parallel/multipart S3 upload
+internal/results/      VideoRenditionReady / Completed / Failed to media-results
 internal/telemetry/    slog JSON logger, OpenTelemetry tracer provider
 internal/testcorpus/   golden corpus of source videos + expected outcomes (test-only)
 ```
@@ -26,6 +32,8 @@ AWS_ENDPOINT_URL=http://localhost:4566 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_
 ```
 
 Tests: `make test-worker` from the repo root.
+- Every accepted corpus sample is encoded into its full ladder and checked, as are its thumbnails (none may be black). A separate 10 s clip checks 4 s segments and keyframe alignment.
+- The pipeline tests run whole jobs against the local S3 and SQS emulator, and skip without `AWS_ENDPOINT_URL`.
 - The SQS tests use the local stack and skip if `AWS_ENDPOINT_URL` is unset.
 - The probe tests need `ffmpeg`/`ffprobe` on PATH. They use the [golden corpus](internal/testcorpus/CORPUS.md), generated on first use and cached in the OS temp directory. They skip without FFmpeg, except in CI, where they fail.
 
@@ -34,6 +42,10 @@ Tests: `make test-worker` from the repo root.
 | Variable | Default | Meaning |
 |---|---|---|
 | `MEDIA_PROCESS_QUEUE` | `media-process` | Queue name |
+| `MEDIA_RESULTS_QUEUE` | `media-results` | Where results are sent |
+| `SCRATCH_DIR` | OS temp dir | Where jobs download and encode. In ECS, the only writable volume. Leftovers of a killed process are removed at startup. |
+| `MAX_ATTEMPTS` | `3` | Deliveries before a job is reported as failed (1–4, so it's always below the queue's `maxReceiveCount` of 5) |
+| `X264_PRESET` | `veryfast` | x264 speed/size trade-off |
 | `WORKER_CONCURRENCY` | `1` | Jobs per process. Transcoding uses all cores, so scale by adding tasks. |
 | `VISIBILITY_TIMEOUT` | `5m` | How far each heartbeat extends the message's invisibility |
 | `HEARTBEAT_INTERVAL` | `1m` | Must be ≤ half of `VISIBILITY_TIMEOUT` |
@@ -53,6 +65,51 @@ Tests: `make test-worker` from the repo root.
 | SIGTERM, job still running after `SHUTDOWN_GRACE` | Job context cancelled; message released immediately for another worker |
 
 While a job runs, a heartbeat keeps the message invisible, so long transcodes are never picked up twice. SQS still delivers at least once (e.g. if a delete fails), so processors must be safe to repeat. Output keys are deterministic (ADR-006).
+
+## A job (`internal/pipeline`)
+
+1. **Download** the source to scratch, streaming (sources can be 10 GB).
+2. **Probe and validate** it (below). A rejection fails the job at once.
+3. **For each rung, lowest first** (`internal/ladder`): encode and package it (`internal/transcode`), upload its files, rewrite `master.m3u8` to list every rung ready so far, then send `VideoRenditionReady`. The first one is what lets Laravel move the video to READY early. The master is always written *after* the renditions it lists, so it never points at a missing playlist.
+4. **Thumbnails** (`internal/thumbs`), uploaded to `thumbs/`.
+5. **`VideoProcessingCompleted`**, with every rendition and thumbnail.
+
+**Output layout** (`media/{video_id}/v{n}/`, from MediaProcessRequested):
+
+```
+master.m3u8                      Cache-Control: max-age=60 (rewritten as rungs become ready)
+h264_360p30/playlist.m3u8        ┐
+h264_360p30/init.mp4             │ Cache-Control: max-age=31536000, immutable
+h264_360p30/seg_00000.m4s …      │ (paths are versioned and never change)
+thumbs/25_1280x720.jpg|webp …    ┘
+```
+
+**Encoding (ADR-004):**
+- H.264 High at the lowest level that fits (declared in the master's `CODECS`, and tests check it matches the stream).
+- AAC-LC 128 kbps stereo at 48 kHz, muxed into each rendition.
+- CMAF fMP4 segments of exactly 4 s, with a keyframe exactly on every boundary and nowhere else, so all rungs switch cleanly.
+- Constant frame rate (variable-frame-rate sources are converted), capped at 60 fps.
+- Rungs 360/480/720/1080 on the **short side**, never above the source. 50/60 fps gets ×1.5 bitrate. Square pixels (anamorphic sources are resized to their display aspect).
+- Rotation applied, interlaced sources deinterlaced, HDR tone-mapped to SDR.
+- FFmpeg runs with the same demuxer and protocol allowlists as the probe.
+
+**Thumbnails (S3-09):** candidates at 25, 50 and 75 % of the duration. A candidate whose frame is black (mean luma < 32) moves to the nearest non-black frame within ±8 s. Each is written as JPEG and WebP fitted into 1280×720, 640×360 and 320×180, keeping the aspect ratio and never upscaling, so 18 files per video.
+
+**Results and retries:**
+
+| Situation | What happens |
+|---|---|
+| Media problem (rejection, missing source, unknown profile) | `VideoProcessingFailed` with the code, `retryable: false`; message deleted |
+| Anything else (S3 or FFmpeg error) on attempts 1–2 | Error returned; SQS retries with backoff. Nothing is reported yet. |
+| …on attempt 3 (`MAX_ATTEMPTS`) | `VideoProcessingFailed` `RETRIES_EXHAUSTED` (or `ENCODER_FAILED`), `retryable: true`; message deleted |
+| Shutdown or the worker is killed | Nothing reported; the message reappears and the job runs again |
+
+**Running a job again is safe.** Every output key is derived from the job, so a rerun overwrites the same objects. Every result message's `event_id` is derived from the job and the message, so a rerun re-sends the same IDs and consumers' `event_id` dedupe drops the repeats. Every message is validated against its contract before it is sent.
+
+**Proof (S3-08 acceptance):**
+- A real 40 s 1080p upload went through Laravel → `media-process`. The worker binary was killed with `kill -9` right after its first rendition. The message reappeared, and a fresh worker finished the job (attempt 2).
+- Afterwards: exactly 67 objects (4 × (10 segments + init + playlist) + master + 18 thumbnails), no strays. Six result messages, all valid against their contracts, with 5 distinct event IDs: the repeated 360p one shares its ID. The master opened with 4 variants and the 1080p rendition decoded end to end.
+- `TestRerunAfterInterruptionLeavesNoDuplicates` checks the same thing in CI.
 
 ## Probing and validation (`internal/media`)
 
@@ -85,3 +142,10 @@ A test proves the second guard on its own: without it, ffprobe follows a playlis
 - **8 rejected:** audio only, audio with cover art, too small, too short, FLV, truncated, renamed text file, malicious playlist.
 
 Expectations live as data in `corpus.go`, so later stages (the transcoder in S2-10 checks each sample's `MVPLadder`) test against the same table. `CORPUS.md` is generated from it, and a test fails when the doc is stale.
+
+## Not yet built
+
+- The container image and ECS service (S3-07). The image needs FFmpeg with libx264, libwebp and zimg (for HDR tone mapping); Ubuntu's `ffmpeg` package has all three. It should run non-root with a read-only root filesystem and `SCRATCH_DIR` on the scratch volume.
+- Laravel consuming `media-results` to move videos to `ready` / `processing_failed` (Sprint 4). Until then, results wait in the queue.
+- Captions (ADR-006 step 6), sprites, per-rendition parallel encoding (GROWTH), and the MediaConvert `Encoder` (specified, not built).
+- The worker doesn't report the `validating → queued_for_processing → processing` steps yet; the video stays `validating` until the first result.
