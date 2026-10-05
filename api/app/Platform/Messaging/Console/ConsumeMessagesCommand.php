@@ -2,7 +2,7 @@
 
 namespace App\Platform\Messaging\Console;
 
-use App\Platform\Messaging\IdempotentConsumer;
+use App\Platform\Messaging\MessageConsumer;
 use App\Platform\Messaging\SqsConsumerRunner;
 use Illuminate\Console\Command;
 
@@ -13,7 +13,7 @@ final class ConsumeMessagesCommand extends Command
         {consumer : Consumer name, as listed in config/messaging.php}
         {--once : Process what is in the queue, then exit}';
 
-    protected $description = 'Consume domain events from SQS with an idempotent consumer';
+    protected $description = 'Consume messages from an SQS queue with a registered consumer';
 
     private bool $stopping = false;
 
@@ -42,11 +42,11 @@ final class ConsumeMessagesCommand extends Command
         return self::SUCCESS;
     }
 
-    private function findConsumer(string $name): ?IdempotentConsumer
+    private function findConsumer(string $name): ?MessageConsumer
     {
         foreach ((array) config('messaging.consumers') as $class) {
             $consumer = is_string($class) ? app($class) : null;
-            if ($consumer instanceof IdempotentConsumer && $consumer->name() === $name) {
+            if ($consumer instanceof MessageConsumer && $consumer->name() === $name) {
                 return $consumer;
             }
         }

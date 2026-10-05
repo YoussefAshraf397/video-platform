@@ -14,11 +14,8 @@ use InvalidArgumentException;
  * neither is saved and the message is retried. Side effects outside this database (HTTP calls,
  * publishing to SNS directly) are not covered; record them through the outbox instead.
  */
-abstract class IdempotentConsumer
+abstract class IdempotentConsumer implements MessageConsumer
 {
-    /** Stable consumer name. It is also the name of the SQS queue it reads, e.g. "media-dispatcher". */
-    abstract public function name(): string;
-
     /** @param array<string, mixed> $envelope */
     abstract protected function process(array $envelope): void;
 

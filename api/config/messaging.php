@@ -1,5 +1,8 @@
 <?php
 
+use App\Modules\Processing\Consumers\MediaDispatcher;
+use App\Modules\Uploads\Consumers\UploadObjectCreatedConsumer;
+
 return [
 
     /*
@@ -17,6 +20,8 @@ return [
      * Each one reads the SQS queue named after its name().
      */
     'consumers' => [
+        UploadObjectCreatedConsumer::class,
+        MediaDispatcher::class,
     ],
 
 ];

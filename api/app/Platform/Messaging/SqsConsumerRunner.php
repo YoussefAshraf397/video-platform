@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Feeds SQS messages (raw JSON envelopes, ADR-005) to an IdempotentConsumer. A message is
+ * Feeds SQS messages (raw JSON bodies; envelopes per ADR-005 for domain events) to a MessageConsumer. A message is
  * deleted only after it was handled. On failure it is left in the queue, becomes visible again
  * after the visibility timeout, and moves to the queue's DLQ after 5 receives.
  */
@@ -22,7 +22,7 @@ final class SqsConsumerRunner
     }
 
     /** @return int how many messages were received */
-    public function pollOnce(IdempotentConsumer $consumer, string $queueUrl, int $waitSeconds = 20): int
+    public function pollOnce(MessageConsumer $consumer, string $queueUrl, int $waitSeconds = 20): int
     {
         $messages = $this->sqs->receiveMessage([
             'QueueUrl' => $queueUrl,

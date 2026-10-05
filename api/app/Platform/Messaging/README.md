@@ -24,8 +24,10 @@ DB::transaction(function () use ($video, $outbox) {
 
 1. Extend `IdempotentConsumer`. `name()` is also the SQS queue name, and `process()` holds the work.
 2. Register the class in `config/messaging.php` → `consumers`.
-3. Create the queue (with its DLQ) subscribed to the topic, with raw message delivery, in `docker/aws/init.sh` and `infra/`.
+3. Create the queue (with its DLQ) subscribed to the topic, with raw message delivery, in `docker/aws/init.sh` and `infra/`. If the consumer only wants some event types, add a subscription filter policy on `event_type`; still ignore other types in code.
 4. Run it with `php artisan messages:consume <name>` (one ECS service per consumer in AWS).
+
+For a message that isn't one of our envelopes (e.g. S3 event notifications), implement `MessageConsumer` directly instead. It has no dedupe marker, so its handling must be idempotent by itself (see the Uploads module's `UploadObjectCreatedConsumer`).
 
 Duplicates are skipped using `processed_messages(consumer, event_id)`. That marker commits in the same transaction as `process()`'s database writes. External side effects (HTTP calls, emails) are **not** deduplicated by this; send them through the outbox or make them idempotent themselves.
 

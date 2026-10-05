@@ -25,10 +25,11 @@ All credentials are local-only and never valid anywhere else.
 |---|---|---|
 | S3 bucket | `uploads` (CORS exposes `ETag`, sends `ObjectCreated` to `s3-upload-events`) | Upload module (S3-03) |
 | S3 bucket | `media`, `images` | Go worker outputs, thumbnails |
-| SQS queue + DLQ | `media-process`, `media-results` | Laravel ↔ Go worker |
-| SQS queue + DLQ | `s3-upload-events` | Upload reconciliation (S3-05) |
-| SQS queue + DLQ | `media-dispatcher` (subscribed to `video-events`) | Starts processing (S3-06) |
-| SNS topic | `video-events` | Outbox relay (S1-06) |
+| SQS queue + DLQ | `media-process` (subscribed to `media-commands`), `media-results` | Laravel ↔ Go worker |
+| SQS queue + DLQ | `s3-upload-events` (S3 `ObjectCreated` for `uploads/*/source`, delivery delayed 90 s) | Upload reconciliation (S3-05) |
+| SQS queue + DLQ | `media-dispatcher` (subscribed to `video-events`, filtered to `VideoUploaded`) | Starts processing (S3-06) |
+| SNS topic | `video-events` | Domain events from the outbox relay (S1-06) |
+| SNS topic | `media-commands` | Commands to the media worker, through the outbox (S3-06) |
 
 Every queue has a `<name>-dlq` with `maxReceiveCount` 5. When you add a queue or topic, add it to `init.sh`, `check.sh` and `infra/`.
 

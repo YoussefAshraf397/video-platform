@@ -44,6 +44,7 @@ for queue in media-process media-results s3-upload-events media-dispatcher; do
   check "sqs queue: $queue (+dlq)"   queue_with_dlq_exists "$queue"
 done
 check "sns topic: video-events"      topic_exists video-events
+check "sns topic: media-commands"    topic_exists media-commands
 
 if [ "$fail" -ne 0 ]; then
   echo "Some checks failed. See \`make logs\`."

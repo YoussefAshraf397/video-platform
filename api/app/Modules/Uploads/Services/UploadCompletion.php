@@ -28,7 +28,8 @@ use Throwable;
  */
 final class UploadCompletion
 {
-    private const STALE_CLAIM_SECONDS = 120;
+    /** A claim older than this belongs to a call that crashed; a retry or the sweeper may take it over. */
+    public const STALE_CLAIM_SECONDS = 120;
 
     public function __construct(
         private readonly UploadSessions $sessions,
@@ -48,8 +49,30 @@ final class UploadCompletion
             $this->sessions->expire($session);
             throw new ApiProblem(410, 'UPLOAD_EXPIRED', 'This upload has expired', 'Start a new upload for the video.');
         }
-        $clientEtags = $this->clientEtags($session, $clientParts);
 
+        return $this->run($session, $this->clientEtags($session, $clientParts));
+    }
+
+    /**
+     * Completes from what S3 holds, without a client part list: for the sweeper (sessions left in
+     * `completing` by a crashed call) and for S3 ObjectCreated events (S3-05). Part sizes and the
+     * final object size are still verified. Sessions that have nothing left to complete are
+     * returned unchanged.
+     *
+     * @throws ApiProblem 409 UPLOAD_COMPLETING while a live call holds the claim (try again later)
+     */
+    public function reconcile(UploadSession $session): UploadSession
+    {
+        if (! $session->isActive() && $session->status !== 'completing') {
+            return $session;
+        }
+
+        return $this->run($session, null);
+    }
+
+    /** @param  array<int, string>|null  $clientEtags  null: trust S3's parts, checking sizes only */
+    private function run(UploadSession $session, ?array $clientEtags): UploadSession
+    {
         $previousStatus = $session->status;
         if (! $this->claim($session)) {
             $session->refresh();
@@ -65,7 +88,7 @@ final class UploadCompletion
             $this->assemble($session, $clientEtags, $previousStatus);
         } catch (Throwable $e) {
             if (! $e instanceof ApiProblem || $e->status >= 500) {
-                $this->release($session, $previousStatus);   // unexpected (e.g. S3 unavailable): let the client retry
+                $this->release($session, $previousStatus);   // unexpected (e.g. S3 unavailable): let the caller retry
             }
             throw $e;
         }
@@ -109,8 +132,8 @@ final class UploadCompletion
             ->update(['status' => $status === 'completing' ? 'in_progress' : $status, 'updated_at' => now()]);
     }
 
-    /** @param  array<int, string>  $clientEtags */
-    private function assemble(UploadSession $session, array $clientEtags, string $previousStatus): void
+    /** @param  array<int, string>|null  $clientEtags */
+    private function assemble(UploadSession $session, ?array $clientEtags, string $previousStatus): void
     {
         try {
             $s3Parts = $this->store->listParts($session->bucket, $session->object_key, $session->s3_upload_id);
@@ -139,21 +162,22 @@ final class UploadCompletion
 
     /**
      * @param  list<array{part_number: int, size_bytes: int, etag: string}>  $s3Parts
-     * @param  array<int, string>  $clientEtags
+     * @param  array<int, string>|null  $clientEtags
      */
-    private function verifyParts(UploadSession $session, array $s3Parts, array $clientEtags, string $previousStatus): void
+    private function verifyParts(UploadSession $session, array $s3Parts, ?array $clientEtags, string $previousStatus): void
     {
         $byNumber = array_column($s3Parts, null, 'part_number');
+        $expected = range(1, $session->total_parts);
 
-        $missing = array_values(array_diff(array_keys($clientEtags), array_keys($byNumber)));
+        $missing = array_values(array_diff($expected, array_keys($byNumber)));
         if ($missing !== []) {
             $this->release($session, $previousStatus);
             throw new ApiProblem(409, 'PARTS_MISSING', 'Some parts have not been uploaded',
                 'Missing parts: '.implode(', ', array_slice($missing, 0, 20)).(count($missing) > 20 ? ', …' : '').'. Upload them and complete again.');
         }
 
-        foreach ($clientEtags as $n => $etag) {
-            if (self::normalizeEtag($byNumber[$n]['etag']) !== $etag) {
+        foreach ($expected as $n) {
+            if ($clientEtags !== null && self::normalizeEtag($byNumber[$n]['etag']) !== $clientEtags[$n]) {
                 $this->fail($session, 'upload_etag_mismatch', "Part {$n} in S3 is not the part the client uploaded.");
             }
             if ($byNumber[$n]['size_bytes'] !== $session->partSize($n)) {

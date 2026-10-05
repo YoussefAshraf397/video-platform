@@ -56,14 +56,29 @@ Part size is `max(8 MiB, size / 9000)` rounded up to a whole MiB, so even 100 Gi
 
 ## Lifetimes
 
-- A session lives 24 h, and the expiry slides forward on every `parts:sign` / `GET`. An expired session is ended when it's next touched (`410 UPLOAD_EXPIRED` on sign), or when a new session starts. The sweeper (S3-05) will end the rest every 15 minutes, using `UploadSessions::expire`.
+- A session lives 24 h, and the expiry slides forward on every `parts:sign` / `GET`. An expired session is ended when it's next touched (`410 UPLOAD_EXPIRED` on sign), when a new session starts, or by the sweeper.
 - Ending a session (cancel or expiry) commits the status change first, then aborts in S3. If that S3 call fails, the bucket's lifecycle rule (abort incomplete uploads after 7 days, S2-09) cleans up.
+
+## Cleanup and reconciliation (S3-05)
+
+**Sweeper**: `php artisan uploads:sweep`, scheduled every 15 minutes by this module's provider (`withoutOverlapping`, `onOneServer`). It handles each session on its own, so one failure doesn't stop the run, and a missed session is picked up next time.
+
+- Live sessions past `expires_at` → `expired`, video → `upload_failed`, S3 upload aborted.
+- Sessions stuck in `completing` (claim older than 2 minutes, because the completing call crashed) → finished from what S3 holds with `UploadCompletion::reconcile` (part and object sizes still checked, no client ETags). If parts are missing, the session is handed back to its previous status, and it can still be completed or expire on schedule.
+- It prints `expired / completed / released / failed / errors` counts and exits non-zero if any session errored.
+
+**S3 `ObjectCreated` → `s3-upload-events` → `UploadObjectCreatedConsumer`** (`php artisan messages:consume s3-upload-events`):
+
+- Only our own `:complete` can create a session's object (clients can only PUT parts). So an object whose session isn't `completed` means that call crashed after S3 assembled the file, and the consumer finishes it.
+- Usually the session is already completed and the message is a no-op. The queue delays delivery by 90 s so the completing call has normally committed by then.
+- If a live call still holds the claim, the consumer throws so SQS redelivers. It takes over once the claim is stale: 5 receives × 60 s is longer than the 2-minute stale window.
+- S3 test events, other keys and unknown sessions are ignored. Duplicates are harmless because completion is idempotent.
+- Proven end to end locally: a crash after S3 assembly, then the real S3 notification, SQS and the consumer led to a completed session and an `uploaded` video.
 
 ## Not yet built
 
-- The expiry sweeper and the S3-event reconciliation (S3-05); a session stuck in `completing` with no retry is also theirs to finish.
 - Whole-file SHA-256 (`sha256`) is stored but only checked by the worker, which reads the file anyway (§10.7).
 - Completing a 9,000-part upload can outlast the idempotency middleware's 60-second in-flight lock. A same-key retry during that window gets `409` from the claim, so this is safe, but the lock should be raised if large completes become common.
-- A session whose video is deleted mid-upload stops getting URLs (`409`) but stays live until the sweeper ends it.
-- Bucket IaC for AWS with CORS and the 7-day lifecycle rule (S2-09). Locally, `docker/aws/init.sh` creates the bucket with CORS that exposes `ETag`.
+- A session whose video is deleted mid-upload stops getting URLs (`409`) but stays live until it expires (at most 24 h after its last activity).
+- Bucket, queue and notification IaC for AWS (S2-09 / S2-01): CORS, the 7-day abort rule, the `s3-upload-events` queue with its 90 s delay. Locally, `docker/aws/init.sh` sets all of these up except the 7-day abort rule.
 - A byte-based daily quota (only session count today) and per-tier size limits (GROWTH).
