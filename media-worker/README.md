@@ -52,6 +52,7 @@ Tests: `make test-worker` from the repo root.
 | `SHUTDOWN_GRACE` | `90s` | Time a running job gets after SIGTERM. Keep it below the ECS `stopTimeout` (max 120 s). |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | unset | Export traces over OTLP/HTTP. When unset, trace IDs still appear in logs. |
+| `OTEL_TRACES_EXPORTER` | unset | `console` prints spans as JSON on stderr (local debugging) |
 | `AWS_REGION`, `AWS_ENDPOINT_URL`, credentials | — | Read by the AWS SDK. In ECS, the task role supplies credentials. |
 
 ## Message handling
@@ -110,6 +111,10 @@ thumbs/25_1280x720.jpg|webp …    ┘
 - A real 40 s 1080p upload went through Laravel → `media-process`. The worker binary was killed with `kill -9` right after its first rendition. The message reappeared, and a fresh worker finished the job (attempt 2).
 - Afterwards: exactly 67 objects (4 × (10 segments + init + playlist) + master + 18 thumbnails), no strays. Six result messages, all valid against their contracts, with 5 distinct event IDs: the repeated 360p one shares its ID. The master opened with 4 variants and the 1080p rendition decoded end to end.
 - `TestRerunAfterInterruptionLeavesNoDuplicates` checks the same thing in CI.
+
+## Tracing
+
+Each job continues the api's trace: the `traceparent` SQS message attribute (set by the api's outbox relay) becomes the parent of the job's CONSUMER span. Every step (download, probe, transcode and upload of each rung, thumbnails) is a child span, and results are sent with `traceparent` too. See [api/app/Platform/Observability](../api/app/Platform/Observability/README.md) for the whole trace.
 
 ## Probing and validation (`internal/media`)
 

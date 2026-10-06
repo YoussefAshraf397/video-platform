@@ -49,6 +49,8 @@ provider "aws" {
   s3_use_path_style           = true
 
   endpoints {
+    cloudwatch = "$ENDPOINT"
+    sns        = "$ENDPOINT"
     ec2  = "$ENDPOINT"
     ecr  = "$ENDPOINT"
     iam  = "$ENDPOINT"
@@ -77,7 +79,35 @@ tf() {
 
 echo "--- init"
 tf init >/dev/null
-echo "--- apply"
+
+# Moto can't decode the CBOR protocol AWS provider v6 uses for CloudWatch (dashboards, alarms).
+# So: plan everything first, which evaluates the real observability module with real values,
+# then apply with that module swapped for a stub with the same outputs. CloudWatch accepting the
+# dashboard and alarms is only checked by a real apply.
+echo "--- plan everything (including CloudWatch)"
+tf plan >"$WORK/full-plan.log" 2>&1 || { cat "$WORK/full-plan.log"; echo "FAIL: full plan"; exit 1; }
+grep -q "module.observability.aws_cloudwatch_dashboard.main will be created" "$WORK/full-plan.log" \
+  || { echo "FAIL: the dashboard is missing from the plan"; exit 1; }
+mkdir -p "$WORK/infra/modules/observability-stub"
+cat > "$WORK/infra/modules/observability-stub/main.tf" <<EOF
+variable "name" { type = string }
+variable "queues" { type = list(string) }
+variable "alb_arn_suffix" {
+  type    = string
+  default = null
+}
+resource "aws_sns_topic" "alarms" { name = "\${var.name}-alarms" }
+output "alarm_topic_arn" { value = aws_sns_topic.alarms.arn }
+EOF
+cat >> "$DEV/emulator_override.tf" <<EOF
+
+module "observability" {
+  source = "../../modules/observability-stub"
+}
+EOF
+tf init >/dev/null
+
+echo "--- apply (CloudWatch stubbed)"
 tf apply -auto-approve | grep -E "^(Apply complete|Error)" || true
 echo "--- plan again (must show no changes)"
 set +e

@@ -22,3 +22,8 @@ output "github_ecr_push_role_arn" {
 output "github_terraform_plan_role_arn" {
   value = module.github_oidc.terraform_plan_role_arn
 }
+
+output "alarm_topic_arn" {
+  description = "Subscribe on-call email or chat here to receive alarms."
+  value       = module.observability.alarm_topic_arn
+}

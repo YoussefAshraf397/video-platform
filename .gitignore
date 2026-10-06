@@ -25,3 +25,6 @@
 # Terraform: account-specific values stay local (examples are committed)
 infra/**/backend.hcl
 infra/**/terraform.tfvars
+
+# Lock files belong to root configurations; module tests create them in module dirs.
+infra/modules/**/.terraform.lock.hcl

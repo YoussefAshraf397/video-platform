@@ -57,7 +57,7 @@ tf: ## Terraform in a container: make tf DIR=envs/dev ARGS="plan" (uses AWS_PROF
 	@mkdir -p $(HOME)/.terraform.d/plugin-cache
 	$(TF) -chdir=/repo/infra/$(DIR) $(ARGS)
 
-tf-check: ## Terraform fmt + validate + tflint for every root (no AWS access needed)
+tf-check: ## Terraform fmt + validate + tflint for every root, and module tests (no AWS access needed)
 	@mkdir -p $(HOME)/.terraform.d/plugin-cache $(HOME)/.tflint.d
 	$(TF) -chdir=/repo/infra fmt -recursive -check -diff
 	@for root in $(TF_ROOTS); do \
@@ -66,6 +66,11 @@ tf-check: ## Terraform fmt + validate + tflint for every root (no AWS access nee
 	done
 	$(TFLINT) --init >/dev/null
 	$(TFLINT) --recursive --config /repo/infra/.tflint.hcl
+	@for tests in infra/modules/*/tests; do \
+		module=$${tests%/tests}; module=$${module#infra/}; \
+		$(TF) -chdir=/repo/infra/$$module init -backend=false -input=false >/dev/null && \
+		$(TF) -chdir=/repo/infra/$$module test -no-color || exit 1; \
+	done
 
 tf-emulator-test: ## Apply envs/dev to a throwaway AWS emulator, check no drift, destroy
 	infra/scripts/emulator-test.sh

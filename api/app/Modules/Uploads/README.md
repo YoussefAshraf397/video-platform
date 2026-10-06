@@ -1,6 +1,6 @@
 # Uploads module
 
-Direct-to-S3 multipart uploads ([ADR-003](../../../../docs/adr/ADR-003-direct-to-s3-uploads.md), design doc §10). Owns `upload_sessions`. Video bytes go from the client straight to S3; the API only hands out presigned URLs and tracks state. It uses the Videos module through `VideoDirectory` and `VideoLifecycle` only.
+Direct-to-S3 multipart uploads ([ADR-003](../../../../docs/adr/ADR-003-direct-to-s3-uploads.md), design doc §10). Client developers: read the [client upload guide](../../../../docs/CLIENT_UPLOAD_GUIDE.md). Owns `upload_sessions`. Video bytes go from the client straight to S3; the API only hands out presigned URLs and tracks state. It uses the Videos module through `VideoDirectory` and `VideoLifecycle` only.
 
 ## Endpoints
 

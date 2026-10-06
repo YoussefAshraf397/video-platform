@@ -8,10 +8,12 @@ use App\Modules\Users\Providers\UsersServiceProvider;
 use App\Modules\Videos\Providers\VideosServiceProvider;
 use App\Platform\Aws\AwsServiceProvider;
 use App\Platform\Messaging\MessagingServiceProvider;
+use App\Platform\Observability\ObservabilityServiceProvider;
 use App\Providers\AppServiceProvider;
 
 return [
     AppServiceProvider::class,
+    ObservabilityServiceProvider::class,
     AwsServiceProvider::class,
     MessagingServiceProvider::class,
     HealthServiceProvider::class,

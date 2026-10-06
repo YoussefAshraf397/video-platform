@@ -16,6 +16,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
 	"videoplatform/contracts"
@@ -139,12 +141,19 @@ func (p *Publisher) send(ctx context.Context, job Job, eventType, schema, idSeed
 		return fmt.Errorf("%s does not match %s: %w", eventType, schema, err)
 	}
 
+	attributes := map[string]types.MessageAttributeValue{
+		"event_type": {DataType: aws.String("String"), StringValue: aws.String(eventType)},
+	}
+	// The job's trace continues in whoever consumes the result (Laravel, S4).
+	carrier := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	if tp := carrier.Get("traceparent"); tp != "" {
+		attributes["traceparent"] = types.MessageAttributeValue{DataType: aws.String("String"), StringValue: aws.String(tp)}
+	}
 	_, err = p.sqs.SendMessage(ctx, &sqs.SendMessageInput{
-		QueueUrl:    aws.String(p.queueURL),
-		MessageBody: aws.String(string(body)),
-		MessageAttributes: map[string]types.MessageAttributeValue{
-			"event_type": {DataType: aws.String("String"), StringValue: aws.String(eventType)},
-		},
+		QueueUrl:          aws.String(p.queueURL),
+		MessageBody:       aws.String(string(body)),
+		MessageAttributes: attributes,
 	})
 	if err != nil {
 		return fmt.Errorf("send %s: %w", eventType, err)

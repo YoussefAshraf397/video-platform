@@ -2,9 +2,12 @@
 
 namespace App\Platform\Messaging;
 
+use App\Platform\Observability\Tracing;
 use Aws\Exception\AwsException;
 use Aws\Sns\SnsClient;
 use Illuminate\Support\Facades\DB;
+use OpenTelemetry\API\Trace\SpanKind;
+use OpenTelemetry\API\Trace\StatusCode;
 
 /**
  * Moves committed outbox rows to SNS. Delivery is at-least-once: if the process dies after
@@ -18,6 +21,7 @@ final class OutboxRelay
     public function __construct(
         private readonly SnsClient $sns,
         private readonly string $topicArnPrefix,
+        private readonly Tracing $tracing,
     ) {}
 
     /**
@@ -34,7 +38,7 @@ final class OutboxRelay
 
         $published = DB::transaction(function () use ($limit, &$failure) {
             $rows = DB::table('outbox_messages')
-                ->select(['id', 'topic', 'event_type', 'envelope'])
+                ->select(['id', 'topic', 'event_type', 'envelope', 'traceparent'])
                 ->whereNull('published_at')
                 ->orderBy('id')
                 ->limit($limit)
@@ -43,15 +47,30 @@ final class OutboxRelay
 
             $published = [];
             foreach ($rows as $row) {
+                // A PRODUCER span in the trace that recorded the event; consumers continue from it.
+                $span = $this->tracing->tracer()->spanBuilder("publish {$row->topic}")
+                    ->setSpanKind(SpanKind::KIND_PRODUCER)
+                    ->setParent($this->tracing->parentFrom($row->traceparent))
+                    ->setAttribute('messaging.system', 'aws_sns')
+                    ->setAttribute('messaging.destination.name', (string) $row->topic)
+                    ->setAttribute('messaging.message.id', (string) $row->id)
+                    ->setAttribute('messaging.event_type', (string) $row->event_type)
+                    ->startSpan();
+                $attributes = ['event_type' => ['DataType' => 'String', 'StringValue' => $row->event_type]];
+                if (($traceparent = $this->tracing->traceparentOf($span->getContext())) !== null) {
+                    // With raw delivery, SNS passes message attributes on as SQS message attributes.
+                    $attributes['traceparent'] = ['DataType' => 'String', 'StringValue' => $traceparent];
+                }
+
                 try {
                     $this->sns->publish([
                         'TopicArn' => $this->topicArnPrefix.$row->topic,
                         'Message' => $row->envelope,
-                        'MessageAttributes' => [
-                            'event_type' => ['DataType' => 'String', 'StringValue' => $row->event_type],
-                        ],
+                        'MessageAttributes' => $attributes,
                     ]);
+                    $span->end();
                 } catch (AwsException $e) {
+                    $span->recordException($e)->setStatus(StatusCode::STATUS_ERROR)->end();
                     $failure = $e;
                     DB::table('outbox_messages')->where('id', $row->id)->update([
                         'attempts' => DB::raw('attempts + 1'),
@@ -69,6 +88,7 @@ final class OutboxRelay
             return count($published);
         });
 
+        $this->tracing->flush();
         if ($failure !== null) {
             throw $failure;
         }

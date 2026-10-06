@@ -10,6 +10,7 @@ use App\Platform\Messaging\OutboxMessage;
 use App\Platform\Messaging\OutboxPublisher;
 use App\Platform\Messaging\OutboxRelay;
 use App\Platform\Messaging\SqsConsumerRunner;
+use App\Platform\Observability\Tracing;
 use Aws\Exception\AwsException;
 use Aws\Sns\SnsClient;
 use Aws\Sqs\SqsClient;
@@ -92,7 +93,7 @@ function drainQueue(object $test): int
 
 it('loses no events when the relay dies mid-batch, and consumers process each event once', function () {
     $eventIds = publishEvents($this, 5);
-    $relay = fn (SnsClient $sns) => new OutboxRelay($sns, config('messaging.sns_topic_arn_prefix'));
+    $relay = fn (SnsClient $sns) => new OutboxRelay($sns, config('messaging.sns_topic_arn_prefix'), app(Tracing::class));
 
     // The relay "dies" after SNS accepted 3 messages, before its transaction committed.
     $sent = 0;

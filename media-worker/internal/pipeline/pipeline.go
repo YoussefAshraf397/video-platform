@@ -23,6 +23,9 @@ import (
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
+
 	"videoplatform/media-worker/internal/jobs"
 	"videoplatform/media-worker/internal/ladder"
 	"videoplatform/media-worker/internal/media"
@@ -139,15 +142,20 @@ func (p *Pipeline) run(ctx context.Context, req jobs.ProcessRequest, job results
 
 	started := time.Now()
 	source := filepath.Join(dir, "source")
-	if err := p.Store.Download(ctx, req.Source.Bucket, req.Source.Key, source); err != nil {
+	if err := traced(ctx, "download", func(ctx context.Context) error {
+		return p.Store.Download(ctx, req.Source.Bucket, req.Source.Key, source)
+	}); err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			return &failure{step: "download", code: "SOURCE_NOT_FOUND", message: err.Error()}
 		}
 		return at("download", err)
 	}
 
-	probe, err := p.Prober.Probe(ctx, source)
-	if err != nil {
+	var probe *media.Result
+	if err := traced(ctx, "probe", func(ctx context.Context) (err error) {
+		probe, err = p.Prober.Probe(ctx, source)
+		return err
+	}); err != nil {
 		return mediaStep("probe", err)
 	}
 	if err := media.Validate(probe, p.Limits); err != nil {
@@ -163,7 +171,9 @@ func (p *Pipeline) run(ctx context.Context, req jobs.ProcessRequest, job results
 
 	for _, r := range renditions {
 		out := filepath.Join(dir, r.Name())
-		if err := p.Encoder.Encode(ctx, source, probe, r, out); err != nil {
+		if err := traced(ctx, "transcode "+r.Name(), func(ctx context.Context) error {
+			return p.Encoder.Encode(ctx, source, probe, r, out)
+		}); err != nil {
 			return at("transcode", err)
 		}
 		files, err := transcode.Files(out)
@@ -174,7 +184,9 @@ func (p *Pipeline) run(ctx context.Context, req jobs.ProcessRequest, job results
 		for _, f := range files {
 			upload = append(upload, storage.File{Path: f, Key: prefix + r.Name() + "/" + filepath.Base(f), CacheControl: storage.CacheImmutable})
 		}
-		if err := p.Store.Upload(ctx, req.Output.Bucket, upload); err != nil {
+		if err := traced(ctx, "upload "+r.Name(), func(ctx context.Context) error {
+			return p.Store.Upload(ctx, req.Output.Bucket, upload)
+		}); err != nil {
 			return at("upload", err)
 		}
 		if err := os.RemoveAll(out); err != nil { // keep scratch use to about one rendition
@@ -202,8 +214,11 @@ func (p *Pipeline) run(ctx context.Context, req jobs.ProcessRequest, job results
 	if err := os.MkdirAll(thumbDir, 0o750); err != nil {
 		return at("thumbnails", err)
 	}
-	made, err := p.Thumbs.Generate(ctx, source, probe, thumbDir)
-	if err != nil {
+	var made []thumbs.Thumbnail
+	if err := traced(ctx, "thumbnails", func(ctx context.Context) (err error) {
+		made, err = p.Thumbs.Generate(ctx, source, probe, thumbDir)
+		return err
+	}); err != nil {
 		return at("thumbnails", err)
 	}
 	thumbFiles := make([]storage.File, 0, len(made))
@@ -244,6 +259,19 @@ func (p *Pipeline) writeMaster(ctx context.Context, bucket, key, dir string, rea
 		return err
 	}
 	return p.Store.Upload(ctx, bucket, []storage.File{{Path: file, Key: key, CacheControl: storage.CacheMaster}})
+}
+
+// traced runs one step of the job as a child span of the message's span, so a trace shows where
+// a slow or failed job spent its time.
+func traced(ctx context.Context, name string, step func(context.Context) error) error {
+	ctx, span := otel.Tracer("videoplatform/media-worker/pipeline").Start(ctx, name)
+	defer span.End()
+	err := step(ctx)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+	}
+	return err
 }
 
 // stepError remembers which step a retryable error came from, for the final failure report.

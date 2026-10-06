@@ -24,6 +24,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/smithy-go/logging"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
 	"videoplatform/contracts"
 	"videoplatform/media-worker/internal/jobs"
@@ -420,5 +423,32 @@ func TestCleanScratchRemovesLeftoversOfAKilledProcess(t *testing.T) {
 	left, _ := os.ReadDir(scratch)
 	if len(left) != 1 || left[0].Name() != "keep-me" {
 		t.Errorf("left %v, want only keep-me", left)
+	}
+}
+
+func TestEachStepIsAChildSpanOfTheJob(t *testing.T) {
+	recorder := tracetest.NewSpanRecorder()
+	previous := otel.GetTracerProvider()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	otel.SetTracerProvider(provider)
+	t.Cleanup(func() { otel.SetTracerProvider(previous) })
+	e := setup(t)
+	req := e.request("sd_4x3_480p.mp4")
+
+	ctx, job := provider.Tracer("test").Start(context.Background(), "process sqs message")
+	if err := e.pipeline.Process(ctx, req); err != nil {
+		t.Fatal(err)
+	}
+	job.End()
+
+	var names []string
+	for _, s := range recorder.Ended() {
+		if s.Parent().SpanID() == job.SpanContext().SpanID() {
+			names = append(names, s.Name())
+		}
+	}
+	want := []string{"download", "probe", "transcode h264_360p30", "upload h264_360p30", "transcode h264_480p30", "upload h264_480p30", "thumbnails"}
+	if !slices.Equal(names, want) {
+		t.Errorf("child spans %v, want %v", names, want)
 	}
 }

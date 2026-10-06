@@ -18,6 +18,7 @@ Backend for a video-on-demand platform: uploads, processing, HLS playback, engag
 - [System design](docs/SYSTEM_DESIGN.md)
 - [Architecture decision records](docs/adr/README.md)
 - [Sprint plan, weeks 1–8](docs/SPRINT_PLAN_W1-8.md)
+- [Client upload guide](docs/CLIENT_UPLOAD_GUIDE.md) (web and mobile developers)
 
 ## Ground rules
 

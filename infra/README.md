@@ -10,10 +10,11 @@ AWS foundations for the platform ([ADR-017](../docs/adr/ADR-017-aws-ecs.md)): on
 |---|---|---|
 | [`bootstrap/`](bootstrap/) | each account (management, dev, prod), once | S3 state bucket: versioned, KMS-encrypted, TLS-only, public access blocked. Locking uses S3's native lock file, so there's no DynamoDB table. |
 | [`organization/`](organization/) | management account | Organization, `NonProd`/`Prod` OUs, dev + prod accounts, guardrail SCP, SSO groups and permission sets |
-| [`envs/dev/`](envs/dev/) | dev account | VPC, ECR repositories, GitHub OIDC roles |
+| [`envs/dev/`](envs/dev/) | dev account | VPC, ECR repositories, GitHub OIDC roles, CloudWatch dashboard + alarms |
 | [`modules/network/`](modules/network/) | — | VPC with public / private / database subnets across 3 AZs, NAT, S3 gateway endpoint, flow logs |
 | [`modules/ecr/`](modules/ecr/) | — | `video-platform/api`, `video-platform/media-worker`: immutable tags, scan on push, KMS, lifecycle, cross-account pull for prod |
 | [`modules/github-oidc/`](modules/github-oidc/) | — | OIDC provider; `github-actions-ecr-push` (main branch only) and `github-actions-terraform-plan` (read-only, PRs + main) |
+| [`modules/observability/`](modules/observability/) | — | CloudWatch dashboard (API requests/errors/latency p50-p99 from the ALB; per-queue depth, oldest-message age, DLQ depth), an alarm on every DLQ (> 0 messages), and the SNS topic alarms notify. Subscribe on-call to the `alarm_topic_arn` output. |
 
 `envs/prod` arrives with the production environment work (it reuses the same modules with `single_nat_gateway = false` and CIDR `10.20.0.0/16`).
 
@@ -52,8 +53,8 @@ No AWS account is needed for any of these. CI runs all of them on every PR.
 
 | Command | What it proves |
 |---|---|
-| `make tf-check` | `fmt`, `validate` for every root, `tflint` with the AWS ruleset |
-| `make tf-emulator-test` | `envs/dev` **applies** to a throwaway AWS emulator (51 resources), a second `plan` shows **no changes**, and `destroy` is clean |
+| `make tf-check` | `fmt`, `validate` for every root, `tflint` with the AWS ruleset, and module tests (`terraform test` with a mocked provider, e.g. one alarm per DLQ, dashboard widgets with and without an ALB) |
+| `make tf-emulator-test` | `envs/dev` **plans** in full and **applies** to a throwaway AWS emulator (52 resources), a second `plan` shows **no changes**, and `destroy` is clean. The emulator can't speak the protocol the AWS provider uses for CloudWatch, so the apply stubs the dashboard and alarms (they're planned, and covered by the module tests). |
 | Trivy (CI security job) | No HIGH/CRITICAL misconfigurations |
 
 The emulator catches apply-time mistakes (wrong references, dependency cycles, module misuse) but not every AWS rule (IAM policy evaluation, quotas, region availability). The first real `terraform plan` in the dev account is still the final check.

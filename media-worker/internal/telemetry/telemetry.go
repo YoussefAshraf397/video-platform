@@ -9,6 +9,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -25,8 +26,9 @@ func NewLogger(w io.Writer, level slog.Level, version string) *slog.Logger {
 }
 
 // SetupTracing installs the global tracer provider. Spans are exported over OTLP/HTTP when
-// OTEL_EXPORTER_OTLP_ENDPOINT (or OTEL_EXPORTER_OTLP_TRACES_ENDPOINT) is set; otherwise they
-// are created but not exported, so trace IDs still appear in logs. Call the returned
+// OTEL_EXPORTER_OTLP_ENDPOINT (or OTEL_EXPORTER_OTLP_TRACES_ENDPOINT) is set, or printed to
+// stderr with OTEL_TRACES_EXPORTER=console; otherwise they are created but not exported, so
+// trace IDs still appear in logs. Call the returned
 // function on shutdown to flush pending spans.
 func SetupTracing(ctx context.Context, version string) (func(context.Context) error, error) {
 	// resource.New (not Merge with resource.Default) avoids failing when the SDK's default
@@ -41,7 +43,15 @@ func SetupTracing(ctx context.Context, version string) (func(context.Context) er
 	}
 
 	opts := []sdktrace.TracerProviderOption{sdktrace.WithResource(res)}
-	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != "" || os.Getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") != "" {
+	switch {
+	case os.Getenv("OTEL_TRACES_EXPORTER") == "console":
+		// Local debugging: one JSON span per line on stderr, like the api's console exporter.
+		exporter, err := stdouttrace.New(stdouttrace.WithWriter(os.Stderr))
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, sdktrace.WithSyncer(exporter))
+	case os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") != "" || os.Getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") != "":
 		exporter, err := otlptracehttp.New(ctx)
 		if err != nil {
 			return nil, err

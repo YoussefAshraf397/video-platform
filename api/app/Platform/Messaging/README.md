@@ -33,6 +33,10 @@ Duplicates are skipped using `processed_messages(consumer, event_id)`. That mark
 
 A message that fails stays in SQS, is retried after the visibility timeout, and moves to the DLQ after 5 receives.
 
+## Tracing (S3-10)
+
+A trace continues across every hop. `OutboxPublisher` stores the current span's W3C `traceparent` on the outbox row, and puts its trace id in the envelope's `trace_id`. The relay publishes each row in a PRODUCER span that is a child of that context. It sends the span's `traceparent` as an SNS message attribute, which raw delivery turns into an SQS message attribute. `SqsConsumerRunner` runs `handle()` in a CONSUMER span continuing it, so events the consumer records join the same trace. The Go worker does the same on `media-process`, and sends `traceparent` with its results. Details are in [Platform/Observability](../Observability/README.md).
+
 ## Running locally
 
 ```bash

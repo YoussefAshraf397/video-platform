@@ -2,6 +2,7 @@
 
 namespace App\Platform\Messaging;
 
+use App\Platform\Observability\Tracing;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -15,6 +16,8 @@ use LogicException;
  */
 final class OutboxPublisher
 {
+    public function __construct(private readonly Tracing $tracing) {}
+
     /** SNS rejects larger messages, which would block the outbox, so refuse them up front. */
     private const MAX_MESSAGE_BYTES = 262_144;
 
@@ -37,7 +40,7 @@ final class OutboxPublisher
             'aggregate_type' => $event->aggregateType(),
             'aggregate_id' => $event->aggregateId(),
             'aggregate_version' => $event->aggregateVersion(),
-            'trace_id' => Context::get('trace_id'),
+            'trace_id' => $this->tracing->currentTraceId() ?? Context::get('trace_id'),
             'payload' => $event->payload(),
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
@@ -53,6 +56,7 @@ final class OutboxPublisher
             'aggregate_id' => $event->aggregateId(),
             'aggregate_version' => $event->aggregateVersion(),
             'envelope' => $envelope,
+            'traceparent' => $this->tracing->currentTraceparent(),
             'created_at' => $now,
         ]);
 

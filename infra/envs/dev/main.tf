@@ -58,3 +58,13 @@ module "github_oidc" {
   state_bucket_arn    = "arn:aws:s3:::${var.state_bucket}"
   state_kms_key_arn   = var.state_kms_key_arn
 }
+
+module "observability" {
+  source = "../../modules/observability"
+
+  name = "videoplatform-dev"
+  # The SQS queues and their DLQs (ADR-005); created with the services in S2-01 / S3-07.
+  queues = ["media-process", "media-results", "s3-upload-events", "media-dispatcher"]
+  # Set to the API ALB's arn_suffix once it exists (S2-01) to add the API widgets.
+  alb_arn_suffix = null
+}

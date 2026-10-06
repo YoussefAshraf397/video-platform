@@ -123,6 +123,7 @@ func (w *Worker) loop(ctx, jobCtx context.Context) {
 			WaitTimeSeconds:             sqsSeconds(w.opts.WaitTime),
 			VisibilityTimeout:           sqsSeconds(w.opts.VisibilityTimeout),
 			MessageSystemAttributeNames: []types.MessageSystemAttributeName{types.MessageSystemAttributeNameApproximateReceiveCount},
+			MessageAttributeNames:       []string{"traceparent"},
 		})
 		if err != nil {
 			if ctx.Err() != nil {
@@ -147,7 +148,9 @@ func (w *Worker) process(jobCtx context.Context, m types.Message) {
 		msg.ReceiveCount = n
 	}
 
-	ctx, span := w.tracer.Start(jobCtx, "process sqs message", trace.WithSpanKind(trace.SpanKindConsumer),
+	// Continue the producer's trace (the api's outbox relay sends `traceparent` as a message attribute).
+	parent := otel.GetTextMapPropagator().Extract(jobCtx, attributeCarrier(m.MessageAttributes))
+	ctx, span := w.tracer.Start(parent, "process sqs message", trace.WithSpanKind(trace.SpanKindConsumer),
 		trace.WithAttributes(
 			attribute.String("messaging.system", "aws_sqs"),
 			attribute.String("messaging.message.id", msg.ID),
@@ -259,4 +262,24 @@ func sleep(ctx context.Context, d time.Duration) {
 	case <-ctx.Done():
 	case <-time.After(d):
 	}
+}
+
+// attributeCarrier reads W3C trace context from SQS message attributes.
+type attributeCarrier map[string]types.MessageAttributeValue
+
+func (c attributeCarrier) Get(key string) string {
+	if v, ok := c[key]; ok {
+		return aws.ToString(v.StringValue)
+	}
+	return ""
+}
+
+func (c attributeCarrier) Set(string, string) {}
+
+func (c attributeCarrier) Keys() []string {
+	keys := make([]string, 0, len(c))
+	for k := range c {
+		keys = append(keys, k)
+	}
+	return keys
 }

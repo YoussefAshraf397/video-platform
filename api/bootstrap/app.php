@@ -4,6 +4,7 @@ use App\Platform\Api\Errors\ApiProblem;
 use App\Platform\Api\Errors\ProblemRenderer;
 use App\Platform\Api\Http\Middleware\AssignRequestId;
 use App\Platform\Api\Http\Middleware\EnforceIdempotency;
+use App\Platform\Observability\TraceRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(AssignRequestId::class);
+        $middleware->prepend(TraceRequests::class);
         // Behind the load balancer every request comes from its IP; trust X-Forwarded-For only from
         // proxies listed in TRUSTED_PROXIES ("*" when the app is reachable only through the ALB),
         // so rate limits and logs see real client IPs. Unset: no proxy is trusted.
