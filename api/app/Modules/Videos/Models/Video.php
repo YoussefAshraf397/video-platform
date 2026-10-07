@@ -29,6 +29,10 @@ use Illuminate\Support\Carbon;
  * @property bool $comments_enabled
  * @property Carbon|null $published_at
  * @property int $state_version
+ * @property int|null $duration_ms
+ * @property int|null $source_width
+ * @property int|null $source_height
+ * @property int|null $processing_version
  * @property string|null $pre_block_status
  * @property string|null $blocked_reason
  * @property Carbon|null $created_at
@@ -57,6 +61,10 @@ final class Video extends Model
             'comments_enabled' => 'boolean',
             'published_at' => 'datetime',
             'state_version' => 'integer',
+            'duration_ms' => 'integer',
+            'source_width' => 'integer',
+            'source_height' => 'integer',
+            'processing_version' => 'integer',
             'deleted_at' => 'datetime',
         ];
     }

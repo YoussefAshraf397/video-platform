@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Processing\Consumers\MediaDispatcher;
+use App\Modules\Processing\Consumers\MediaResultsConsumer;
 use App\Modules\Uploads\Consumers\UploadObjectCreatedConsumer;
 
 return [
@@ -22,6 +23,7 @@ return [
     'consumers' => [
         UploadObjectCreatedConsumer::class,
         MediaDispatcher::class,
+        MediaResultsConsumer::class,
     ],
 
 ];

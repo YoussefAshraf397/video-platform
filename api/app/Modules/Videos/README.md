@@ -56,6 +56,14 @@ Side effects: the first publish sets `published_at`, and republishing keeps it. 
 
 Proof: every one of the 16×16 status pairs is checked against the spec table, which is written out separately in the test. Seeded random walks of 150 steps mixing transitions and edits check that the events form one unbroken path with one event per accepted move. Six deliberate breakages were all caught. In a real run, 12 processes racing `uploading → uploaded` while 8 others edited the row gave 1 success, 11 `IllegalVideoTransition`s and 1 event.
 
+## Media and thumbnails
+
+Processing records what it found and made through `Contracts\VideoMedia::recordProcessed`:
+
+- `duration_ms`, `source_width` / `source_height` (display size), and the `processing_version` they came from. An older version never overwrites a newer one.
+- `thumbnails`: one row per candidate frame (`time_offset_ms`), with its files (sizes × JPEG/WebP) in `files`.
+- The candidate nearest the middle of the video becomes primary. It replaces an auto primary from an older version, but never a custom one. There is one primary per video (a partial unique index).
+
 ## Tags
 
 Matched case-, Unicode- and whitespace-insensitively (NFKC, collapsed whitespace, lowercase): `Lo-Fi  Beats`, `lo-fi beats` and `ＬＯ-ＦＩ BEATS` are one tag in `tags`. The creator's spelling and order are kept per video in `video_tags.label` / `position`. Duplicates within one video collapse to the first spelling.

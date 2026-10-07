@@ -20,6 +20,13 @@ use Illuminate\Support\Carbon;
  * @property string $source_key
  * @property string $output_bucket
  * @property string $output_prefix
+ * @property string|null $master_playlist_key
+ * @property string|null $error_code
+ * @property string|null $error_detail
+ * @property string|null $failed_step
+ * @property bool|null $failure_retryable
+ * @property Carbon|null $started_at
+ * @property Carbon|null $finished_at
  * @property Carbon|null $created_at
  */
 final class ProcessingJob extends Model
@@ -28,10 +35,16 @@ final class ProcessingJob extends Model
 
     protected $table = 'video_processing_jobs';
 
+    /** Statuses after which a job's outcome is settled. */
+    public const SETTLED = ['succeeded', 'partially_succeeded', 'failed', 'cancelled'];
+
     protected $guarded = [];
 
     protected function casts(): array
     {
-        return ['processing_version' => 'integer', 'attempt' => 'integer'];
+        return [
+            'processing_version' => 'integer', 'attempt' => 'integer', 'failure_retryable' => 'boolean',
+            'started_at' => 'datetime', 'finished_at' => 'datetime',
+        ];
     }
 }
