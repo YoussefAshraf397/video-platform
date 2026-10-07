@@ -11,6 +11,8 @@ Route::middleware('api')->prefix('v1')->group(function () {
         Route::post('videos', [VideoController::class, 'store'])->middleware('idempotent');
         Route::patch('videos/{video}', [VideoController::class, 'update']);
         Route::delete('videos/{video}', [VideoController::class, 'destroy']);
+        Route::post('videos/{video}:publish', [VideoController::class, 'publish']);
+        Route::post('videos/{video}:unpublish', [VideoController::class, 'unpublish']);
         Route::get('me/videos', [VideoController::class, 'mine']);
     });
 

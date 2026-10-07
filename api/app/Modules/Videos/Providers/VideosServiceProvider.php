@@ -6,8 +6,11 @@ use App\Modules\Videos\Contracts\VideoDirectory;
 use App\Modules\Videos\Contracts\VideoLifecycle;
 use App\Modules\Videos\Contracts\VideoMedia;
 use App\Modules\Videos\Services\ProcessedMedia;
+use App\Modules\Videos\Services\Publication;
 use App\Modules\Videos\Services\Videos;
 use App\Modules\Videos\Services\VideoStateMachine;
+use App\Modules\Videos\Services\VideoTransitioned;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 final class VideosServiceProvider extends ServiceProvider
@@ -24,5 +27,6 @@ final class VideosServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__.'/../Database/Migrations');
         $this->loadRoutesFrom(__DIR__.'/../routes.php');
+        Event::listen(VideoTransitioned::class, [Publication::class, 'publishOnReady']);
     }
 }

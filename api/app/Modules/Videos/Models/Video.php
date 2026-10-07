@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property bool $age_restricted
  * @property bool $made_for_kids
  * @property bool $comments_enabled
+ * @property bool $publish_on_ready
  * @property Carbon|null $published_at
  * @property int $state_version
  * @property int|null $duration_ms
@@ -59,6 +60,7 @@ final class Video extends Model
             'age_restricted' => 'boolean',
             'made_for_kids' => 'boolean',
             'comments_enabled' => 'boolean',
+            'publish_on_ready' => 'boolean',
             'published_at' => 'datetime',
             'state_version' => 'integer',
             'duration_ms' => 'integer',

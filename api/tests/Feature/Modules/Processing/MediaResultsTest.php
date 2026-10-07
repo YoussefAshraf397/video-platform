@@ -286,3 +286,13 @@ describe('GET /v1/videos/{id}/processing', function () {
         $this->getJson("/v1/videos/{$this->video->public_id}/processing")->assertUnauthorized();
     });
 });
+
+it('publishes on the first rendition when the creator chose publish_on_ready', function () {
+    Video::whereKey($this->video->id)->update(['publish_on_ready' => true, 'visibility' => 'public']);
+    $job = ($this->dispatch)();
+
+    $this->consumer->handle(ready($job, 360));
+
+    expect($this->video->fresh()->status)->toBe('published')
+        ->and(array_slice(($this->states)(), -2))->toBe(['ready', 'published']);
+});

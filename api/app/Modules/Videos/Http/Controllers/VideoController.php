@@ -3,6 +3,7 @@
 namespace App\Modules\Videos\Http\Controllers;
 
 use App\Modules\Videos\Models\Video;
+use App\Modules\Videos\Services\Publication;
 use App\Modules\Videos\Services\Videos;
 use App\Platform\Api\Http\CallerId;
 use App\Platform\Api\Http\KnownFields;
@@ -21,7 +22,7 @@ use Illuminate\Validation\Rule;
  */
 final class VideoController
 {
-    private const FIELDS = ['title', 'description', 'tags', 'category', 'language', 'visibility', 'age_restricted', 'made_for_kids', 'comments_enabled'];
+    private const FIELDS = ['title', 'description', 'tags', 'category', 'language', 'visibility', 'age_restricted', 'made_for_kids', 'comments_enabled', 'publish_on_ready'];
 
     public function __construct(private readonly Videos $videos) {}
 
@@ -62,9 +63,46 @@ final class VideoController
     public function destroy(Request $request, string $video): HttpResponse
     {
         $owned = $this->videos->findOwnedModel($video, CallerId::from($request));
-        $this->videos->delete($owned, $request->hasHeader('If-Match') ? Preconditions::expectedVersion($request) : null);
+        $this->videos->delete($owned, $this->ifMatch($request));
 
         return response()->noContent();
+    }
+
+    /**
+     * Publish (design doc §12.4). Guards: READY (or UNPUBLISHED, to republish), a title, not
+     * blocked; every unmet one is listed in a 409 NOT_PUBLISHABLE. `visibility` sets it in the same
+     * step ("publish as unlisted"). Publishing again is a no-op. If-Match is optional.
+     */
+    #[HeaderParameter('If-Match', 'Optional. Only publish if the video is still at this version.', required: false, example: '"3"')]
+    #[Response(409, 'NOT_PUBLISHABLE: not READY, no title, or blocked (each listed in errors)', 'application/problem+json')]
+    #[Response(412, 'PRECONDITION_FAILED', 'application/problem+json')]
+    public function publish(Request $request, string $video, Publication $publication): JsonResponse
+    {
+        $owned = $this->videos->findOwnedModel($video, CallerId::from($request));
+        KnownFields::assert($request, ['visibility']);
+        $input = $request->validate(['visibility' => ['sometimes', 'required', Rule::in(Video::VISIBILITIES)]]);
+
+        $publication->publish($owned, $input['visibility'] ?? null, $this->ifMatch($request));
+
+        return $this->respond($this->videos->findOwnedModel($video, CallerId::from($request)));
+    }
+
+    /** Unpublish: the video stays, but only its owner can see it, until it's published again. */
+    #[HeaderParameter('If-Match', 'Optional. Only unpublish if the video is still at this version.', required: false, example: '"3"')]
+    #[Response(409, 'NOT_PUBLISHED: the video is not published', 'application/problem+json')]
+    public function unpublish(Request $request, string $video, Publication $publication): JsonResponse
+    {
+        $owned = $this->videos->findOwnedModel($video, CallerId::from($request));
+        KnownFields::assert($request, []);
+
+        $publication->unpublish($owned, $this->ifMatch($request));
+
+        return $this->respond($this->videos->findOwnedModel($video, CallerId::from($request)));
+    }
+
+    private function ifMatch(Request $request): ?int
+    {
+        return $request->hasHeader('If-Match') ? Preconditions::expectedVersion($request) : null;
     }
 
     /** The caller's own videos in every status, newest first. */
@@ -101,6 +139,7 @@ final class VideoController
             'age_restricted' => ['sometimes', 'required', 'boolean:strict'],
             'made_for_kids' => ['sometimes', 'required', 'boolean:strict'],
             'comments_enabled' => ['sometimes', 'required', 'boolean:strict'],
+            'publish_on_ready' => ['sometimes', 'required', 'boolean:strict'],
         ];
     }
 
@@ -128,6 +167,7 @@ final class VideoController
             'age_restricted' => $video->age_restricted,
             'made_for_kids' => $video->made_for_kids,
             'comments_enabled' => $video->comments_enabled,
+            'publish_on_ready' => $video->publish_on_ready,
             'published_at' => $video->published_at?->toIso8601ZuluString(),
             'created_at' => $video->created_at?->toIso8601ZuluString(),
             'updated_at' => $video->updated_at?->toIso8601ZuluString(),

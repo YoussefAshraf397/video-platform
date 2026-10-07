@@ -173,7 +173,7 @@ final class Videos implements VideoDirectory
     private function columns(array $input): array
     {
         $columns = array_intersect_key($input, array_flip([
-            'title', 'description', 'language', 'visibility', 'age_restricted', 'made_for_kids', 'comments_enabled',
+            'title', 'description', 'language', 'visibility', 'age_restricted', 'made_for_kids', 'comments_enabled', 'publish_on_ready',
         ]));
 
         if (array_key_exists('category', $input)) {

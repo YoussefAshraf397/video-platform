@@ -2840,6 +2840,9 @@
                                     },
                                     "comments_enabled": {
                                         "type": "boolean"
+                                    },
+                                    "publish_on_ready": {
+                                        "type": "boolean"
                                     }
                                 },
                                 "required": [
@@ -2914,6 +2917,9 @@
                                         "comments_enabled": {
                                             "type": "boolean"
                                         },
+                                        "publish_on_ready": {
+                                            "type": "boolean"
+                                        },
                                         "published_at": {
                                             "type": [
                                                 "string",
@@ -2948,6 +2954,7 @@
                                         "age_restricted",
                                         "made_for_kids",
                                         "comments_enabled",
+                                        "publish_on_ready",
                                         "published_at",
                                         "created_at",
                                         "updated_at",
@@ -3169,6 +3176,9 @@
                                     },
                                     "comments_enabled": {
                                         "type": "boolean"
+                                    },
+                                    "publish_on_ready": {
+                                        "type": "boolean"
                                     }
                                 }
                             }
@@ -3240,6 +3250,9 @@
                                         "comments_enabled": {
                                             "type": "boolean"
                                         },
+                                        "publish_on_ready": {
+                                            "type": "boolean"
+                                        },
                                         "published_at": {
                                             "type": [
                                                 "string",
@@ -3274,6 +3287,7 @@
                                         "age_restricted",
                                         "made_for_kids",
                                         "comments_enabled",
+                                        "publish_on_ready",
                                         "published_at",
                                         "created_at",
                                         "updated_at",
@@ -3652,6 +3666,9 @@
                                         "comments_enabled": {
                                             "type": "boolean"
                                         },
+                                        "publish_on_ready": {
+                                            "type": "boolean"
+                                        },
                                         "published_at": {
                                             "type": [
                                                 "string",
@@ -3686,11 +3703,528 @@
                                         "age_restricted",
                                         "made_for_kids",
                                         "comments_enabled",
+                                        "publish_on_ready",
                                         "published_at",
                                         "created_at",
                                         "updated_at",
                                         "etag"
                                     ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/videos/{video}:publish": {
+            "post": {
+                "operationId": "video.publish",
+                "summary": "Publish (design doc \u00a712.4). Guards: READY (or UNPUBLISHED, to republish), a title, not\nblocked; every unmet one is listed in a 409 NOT_PUBLISHABLE. `visibility` sets it in the same\nstep (\"publish as unlisted\"). Publishing again is a no-op. If-Match is optional",
+                "tags": [
+                    "Video"
+                ],
+                "parameters": [
+                    {
+                        "name": "video",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "description": "Optional. Only publish if the video is still at this version.",
+                        "schema": {},
+                        "example": "\"3\""
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "visibility": {
+                                        "type": "string",
+                                        "enum": [
+                                            "public",
+                                            "unlisted",
+                                            "private"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "description": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "tags": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "category": {
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "properties": {
+                                                "slug": {
+                                                    "type": "string"
+                                                },
+                                                "name": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "slug",
+                                                "name"
+                                            ]
+                                        },
+                                        "language": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "visibility": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "age_restricted": {
+                                            "type": "boolean"
+                                        },
+                                        "made_for_kids": {
+                                            "type": "boolean"
+                                        },
+                                        "comments_enabled": {
+                                            "type": "boolean"
+                                        },
+                                        "publish_on_ready": {
+                                            "type": "boolean"
+                                        },
+                                        "published_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "created_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "updated_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "etag": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "title",
+                                        "description",
+                                        "tags",
+                                        "category",
+                                        "language",
+                                        "visibility",
+                                        "status",
+                                        "age_restricted",
+                                        "made_for_kids",
+                                        "comments_enabled",
+                                        "publish_on_ready",
+                                        "published_at",
+                                        "created_at",
+                                        "updated_at",
+                                        "etag"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "URI identifying the problem type."
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "examples": [
+                                                422
+                                            ]
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "description": "Stable machine-readable error code."
+                                        },
+                                        "request_id": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string"
+                                                    },
+                                                    "code": {
+                                                        "type": "string"
+                                                    },
+                                                    "message": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "code",
+                                                    "message"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "URI identifying the problem type."
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "examples": [
+                                                401
+                                            ]
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "description": "Stable machine-readable error code."
+                                        },
+                                        "request_id": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string"
+                                                    },
+                                                    "code": {
+                                                        "type": "string"
+                                                    },
+                                                    "message": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "code",
+                                                    "message"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "NOT_PUBLISHABLE: not READY, no title, or blocked (each listed in errors)",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "412": {
+                        "description": "PRECONDITION_FAILED",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/videos/{video}:unpublish": {
+            "post": {
+                "operationId": "video.unpublish",
+                "summary": "Unpublish: the video stays, but only its owner can see it, until it's published again",
+                "tags": [
+                    "Video"
+                ],
+                "parameters": [
+                    {
+                        "name": "video",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "description": "Optional. Only unpublish if the video is still at this version.",
+                        "schema": {},
+                        "example": "\"3\""
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "description": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "tags": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "category": {
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "properties": {
+                                                "slug": {
+                                                    "type": "string"
+                                                },
+                                                "name": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "slug",
+                                                "name"
+                                            ]
+                                        },
+                                        "language": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "visibility": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "age_restricted": {
+                                            "type": "boolean"
+                                        },
+                                        "made_for_kids": {
+                                            "type": "boolean"
+                                        },
+                                        "comments_enabled": {
+                                            "type": "boolean"
+                                        },
+                                        "publish_on_ready": {
+                                            "type": "boolean"
+                                        },
+                                        "published_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "created_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "updated_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "etag": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "title",
+                                        "description",
+                                        "tags",
+                                        "category",
+                                        "language",
+                                        "visibility",
+                                        "status",
+                                        "age_restricted",
+                                        "made_for_kids",
+                                        "comments_enabled",
+                                        "publish_on_ready",
+                                        "published_at",
+                                        "created_at",
+                                        "updated_at",
+                                        "etag"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "URI identifying the problem type."
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "examples": [
+                                                401
+                                            ]
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "description": "Stable machine-readable error code."
+                                        },
+                                        "request_id": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string"
+                                                    },
+                                                    "code": {
+                                                        "type": "string"
+                                                    },
+                                                    "message": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "code",
+                                                    "message"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "NOT_PUBLISHED: the video is not published",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "string"
                                 }
                             }
                         }

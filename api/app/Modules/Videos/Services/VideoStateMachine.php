@@ -10,6 +10,7 @@ use App\Modules\Videos\Models\Video;
 use App\Platform\Api\Http\Preconditions;
 use App\Platform\Messaging\OutboxPublisher;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
@@ -68,6 +69,7 @@ final class VideoStateMachine implements VideoLifecycle
         }
 
         $this->outbox->publish(new VideoStateChanged($videoId, $video->public_id, $from, $to, $reason, $version + 1));
+        Event::dispatch(new VideoTransitioned($videoId, $from, $to));   // in-transaction reactions, e.g. publish_on_ready
         Log::info('video.transitioned', ['video_id' => $videoId, 'from' => $from->value, 'to' => $to->value, 'reason' => $reason]);
 
         return $version + 1;
