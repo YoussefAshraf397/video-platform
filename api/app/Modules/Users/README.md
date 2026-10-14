@@ -18,6 +18,14 @@ Owns the `users` table: identity, public profile and account status. Other modul
 - Reserved words (`admin`, `support`, `api`, `official` …, see `Rules\UniqueHandle::RESERVED`) are reported as taken. Taken or reserved is error code `UNIQUE_HANDLE`.
 - Enforced twice: the validation rule, and a unique index on `lower(handle)` that catches two simultaneous claims and returns the same `422`.
 
+## Staff roles
+
+`users.role`: `user` (default), `moderator`, `admin` (design doc §23). Creator and viewer rights come from ownership, not roles.
+
+- Route middleware `admin` (`Http\Middleware\RequireAdmin`) guards the admin API (`/admin/v1`). It reads the role from the database on every request, not from the token, so removing a role takes effect immediately. It also puts `admin_id` on every log line of the request.
+- `UserRecord::isAdmin()` is true only for an active admin.
+- Until the admin console manages staff: `php artisan users:role someone@example.com admin` (or `user`).
+
 ## Account status
 
 `active` | `suspended` | `deleted` (deleted arrives with the account-deletion saga).

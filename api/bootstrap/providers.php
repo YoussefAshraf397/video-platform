@@ -2,6 +2,7 @@
 
 use App\Modules\Auth\Providers\AuthServiceProvider;
 use App\Modules\Health\Providers\HealthServiceProvider;
+use App\Modules\Playback\Providers\PlaybackServiceProvider;
 use App\Modules\Processing\Providers\ProcessingServiceProvider;
 use App\Modules\Uploads\Providers\UploadsServiceProvider;
 use App\Modules\Users\Providers\UsersServiceProvider;
@@ -22,4 +23,5 @@ return [
     VideosServiceProvider::class,
     UploadsServiceProvider::class,
     ProcessingServiceProvider::class,
+    PlaybackServiceProvider::class,
 ];

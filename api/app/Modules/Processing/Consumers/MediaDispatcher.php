@@ -2,14 +2,12 @@
 
 namespace App\Modules\Processing\Consumers;
 
-use App\Modules\Processing\Events\MediaProcessRequested;
-use App\Modules\Processing\Models\ProcessingJob;
+use App\Modules\Processing\Services\JobQueue;
 use App\Modules\Uploads\Contracts\UploadedSources;
 use App\Modules\Videos\Contracts\IllegalVideoTransition;
 use App\Modules\Videos\Contracts\VideoLifecycle;
 use App\Modules\Videos\Contracts\VideoStatus;
 use App\Platform\Messaging\IdempotentConsumer;
-use App\Platform\Messaging\OutboxPublisher;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -25,13 +23,10 @@ use Illuminate\Support\Facades\Log;
  */
 final class MediaDispatcher extends IdempotentConsumer
 {
-    /** The encoding ladder every upload gets at the MVP (ADR-004). */
-    public const PROFILE = 'h264-sdr-v1';
-
     public function __construct(
         private readonly UploadedSources $sources,
         private readonly VideoLifecycle $lifecycle,
-        private readonly OutboxPublisher $outbox,
+        private readonly JobQueue $jobs,
     ) {}
 
     public function name(): string
@@ -61,22 +56,6 @@ final class MediaDispatcher extends IdempotentConsumer
             return;
         }
 
-        $version = (int) ProcessingJob::query()->where('video_id', $videoId)->max('processing_version') + 1;
-        $job = ProcessingJob::query()->create([
-            'video_id' => $videoId,
-            'upload_session_id' => $source->uploadSessionId,
-            'processing_version' => $version,
-            'profile' => self::PROFILE,
-            'status' => 'queued',
-            'source_bucket' => $source->bucket,
-            'source_key' => $source->key,
-            'output_bucket' => (string) config('processing.output_bucket'),
-            'output_prefix' => "media/{$videoId}/v{$version}/",
-        ]);
-
-        $this->outbox->publish(new MediaProcessRequested(
-            $job->id, $videoId, $version, $job->source_bucket, $job->source_key, $job->output_bucket, $job->output_prefix, self::PROFILE, $videoVersion,
-        ));
-        Log::info('processing.dispatched', ['video_id' => $videoId, 'job_id' => $job->id, 'processing_version' => $version]);
+        $this->jobs->queue($videoId, $source->uploadSessionId, $source->bucket, $source->key, $videoVersion);
     }
 }

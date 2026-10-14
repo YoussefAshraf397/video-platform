@@ -17,7 +17,10 @@ use Illuminate\Support\Facades\Log;
  */
 final class Publication
 {
-    public function __construct(private readonly VideoLifecycle $lifecycle) {}
+    public function __construct(
+        private readonly VideoLifecycle $lifecycle,
+        private readonly AccessPolicies $policies,
+    ) {}
 
     /**
      * Publishes the video (optionally setting its visibility first, in the same transaction).
@@ -42,6 +45,7 @@ final class Publication
                 if ($updated === 0) {
                     throw Preconditions::failed();
                 }
+                $this->policies->forget($video->public_id);
                 $expectedVersion = $expectedVersion === null ? null : $expectedVersion + 1;
             }
             if ($video->status !== VideoStatus::Published->value) {

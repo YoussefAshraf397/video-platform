@@ -24,7 +24,10 @@ final class VideoStateMachine implements VideoLifecycle
 {
     private const MAX_ATTEMPTS = 5;
 
-    public function __construct(private readonly OutboxPublisher $outbox) {}
+    public function __construct(
+        private readonly OutboxPublisher $outbox,
+        private readonly AccessPolicies $policies,
+    ) {}
 
     public function transition(string $videoId, VideoStatus $to, string $reason, ?int $expectedVersion = null): int
     {
@@ -68,6 +71,7 @@ final class VideoStateMachine implements VideoLifecycle
             return null;
         }
 
+        $this->policies->forget($video->public_id);   // who may watch can change with the status
         $this->outbox->publish(new VideoStateChanged($videoId, $video->public_id, $from, $to, $reason, $version + 1));
         Event::dispatch(new VideoTransitioned($videoId, $from, $to));   // in-transaction reactions, e.g. publish_on_ready
         Log::info('video.transitioned', ['video_id' => $videoId, 'from' => $from->value, 'to' => $to->value, 'reason' => $reason]);

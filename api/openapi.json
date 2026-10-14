@@ -1392,6 +1392,144 @@
                 }
             }
         },
+        "/videos/{video}/playback": {
+            "get": {
+                "operationId": "playback.show",
+                "tags": [
+                    "Playback"
+                ],
+                "parameters": [
+                    {
+                        "name": "video",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "video": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string"
+                                                },
+                                                "title": {
+                                                    "type": "string"
+                                                },
+                                                "duration_ms": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "width": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "height": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "id",
+                                                "title",
+                                                "duration_ms",
+                                                "width",
+                                                "height"
+                                            ]
+                                        },
+                                        "streams": {
+                                            "type": "object",
+                                            "properties": {
+                                                "hls": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "hls"
+                                            ]
+                                        },
+                                        "auth": {
+                                            "type": "object",
+                                            "properties": {
+                                                "type": {
+                                                    "type": "string",
+                                                    "const": "cookie"
+                                                },
+                                                "expires_at": {
+                                                    "type": "string"
+                                                },
+                                                "cookies": {
+                                                    "type": "object",
+                                                    "description": "Also in the body, for native players that set them as request headers themselves.",
+                                                    "additionalProperties": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "type",
+                                                "expires_at",
+                                                "cookies"
+                                            ]
+                                        },
+                                        "thumbnails": {
+                                            "type": "object",
+                                            "properties": {
+                                                "primary": {
+                                                    "type": "array",
+                                                    "items": {}
+                                                }
+                                            },
+                                            "required": [
+                                                "primary"
+                                            ]
+                                        },
+                                        "captions": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "minItems": 0,
+                                            "maxItems": 0
+                                        },
+                                        "resume_position_ms": {
+                                            "type": "null"
+                                        },
+                                        "playback_session_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "video",
+                                        "streams",
+                                        "auth",
+                                        "thumbnails",
+                                        "captions",
+                                        "resume_position_ms",
+                                        "playback_session_id"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/videos/{video}/processing": {
             "get": {
                 "operationId": "processingStatus.show",

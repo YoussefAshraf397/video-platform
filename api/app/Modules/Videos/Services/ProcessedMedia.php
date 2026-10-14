@@ -9,6 +9,8 @@ use Illuminate\Support\Str;
 
 final class ProcessedMedia implements VideoMedia
 {
+    public function __construct(private readonly AccessPolicies $policies) {}
+
     public function recordProcessed(string $videoId, int $processingVersion, int $durationMs, int $width, int $height, array $thumbnails): void
     {
         // Only a newer (or the same) version may overwrite what is recorded: results can arrive late.
@@ -21,6 +23,7 @@ final class ProcessedMedia implements VideoMedia
         if ($updated === 0) {
             return;
         }
+        $this->policies->forgetById($videoId);   // duration and the primary thumbnail are in the policy
 
         // One candidate per distinct frame; its sizes and formats are its files.
         $candidates = [];

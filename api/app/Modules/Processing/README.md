@@ -62,7 +62,34 @@ The worker's error message isn't shown; the contract reserves it for logs and th
 - Three deliberate breakages were caught: no stale-version check, a failure overriding a completion, and a failure ignoring playable renditions.
 - A real run: upload through Laravel → dispatcher → Go worker → this consumer. The video went `… → validating → queued_for_processing → processing → ready`, with 3 renditions, the duration and size recorded, and 3 thumbnail candidates.
 
+## Failed jobs: admin list and retry (S4-05)
+
+Admin API, `/admin/v1`, admins only (the Users module's `admin` middleware):
+
+| Endpoint | |
+|---|---|
+| `GET /admin/v1/processing/jobs?status=failed` | Jobs by status (default `failed`), newest first, cursor-paginated. Includes the worker's own error message, which creators never see. |
+| `POST /admin/v1/processing/jobs/{id}:retry` | `Idempotency-Key` required. `201` with the new job. |
+
+**A retry is a new job at the next processing version, linked by `retry_of`, not a rerun of the failed one.** The worker derives result event ids from the job, so a rerun's results would look like duplicates of the failed run's and be dropped. With a new version:
+- the outputs go to `media/{id}/v{n+1}/`;
+- late results from the failed job are stale and ignored;
+- the "one job per upload" index (the dispatcher's backstop) is now partial: it exempts retries.
+
+In one transaction, the video goes `processing_failed → queued_for_processing` (reason `admin_retry`) and `MediaProcessRequested` is sent. The results consumer then takes it to `ready` or back to `processing_failed`. A retry can itself be retried.
+
+Refused with `409`:
+- `JOB_NOT_FAILED` (e.g. `partially_succeeded`: the video is already playable);
+- `NOT_LATEST_JOB` (a newer job exists, including an earlier retry);
+- `VIDEO_NOT_RETRYABLE` (deleted, blocked or re-uploaded since).
+
+The admin and the job are logged (`processing.retried_by_admin`).
+
+Creating a job and sending its command is one shared service, `Services\JobQueue`, used by both the dispatcher and retries.
+
+Proof: 10 tests (access, listing, retry end to end through the results consumer, idempotency, every refusal). Three deliberate breakages were caught: the admin check, retrying a job that isn't failed, and retrying an older job.
+
 ## Not yet built
 
 - Retrying a failed job (`processing_failed → queued_for_processing`), stuck-job detection, and the `GET /v1/videos/{id}/processing` status endpoint.
-- `publish_on_ready` (S4-02), and admin retry of failed jobs (S4-05).
+- Retrying `partially_succeeded` jobs (the video is READY, so this needs a "reprocess" flow that swaps versions once the new one is ready), and a creator-facing "try again".

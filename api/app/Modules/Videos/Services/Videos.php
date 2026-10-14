@@ -24,7 +24,10 @@ use Normalizer;
  */
 final class Videos implements VideoDirectory
 {
-    public function __construct(private readonly VideoLifecycle $lifecycle) {}
+    public function __construct(
+        private readonly VideoLifecycle $lifecycle,
+        private readonly AccessPolicies $policies,
+    ) {}
 
     public const MAX_TAGS = 30;
 
@@ -122,6 +125,7 @@ final class Videos implements VideoDirectory
             if ($updated === 0) {
                 throw Preconditions::failed();
             }
+            $this->policies->forget($video->public_id);   // visibility, age restriction, title
             if (array_key_exists('tags', $changes)) {
                 $this->replaceTags($video->id, $changes['tags'] ?? []);
             }

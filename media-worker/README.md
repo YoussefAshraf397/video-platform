@@ -105,6 +105,13 @@ thumbs/25_1280x720.jpg|webp …    ┘
 | …on attempt 3 (`MAX_ATTEMPTS`) | `VideoProcessingFailed` `RETRIES_EXHAUSTED` (or `ENCODER_FAILED`), `retryable: true`; message deleted |
 | Shutdown or the worker is killed | Nothing reported; the message reappears and the job runs again |
 
+**Failure handling, proven (S4-05):**
+- A corrupt upload (`truncated.mp4`) fails on its first attempt with `CORRUPT_SOURCE`, `retryable: false`, and writes no outputs.
+- Transient errors are retried and reported only on the last attempt.
+- If even the failure can't be reported, the message isn't deleted, so it's redelivered and eventually dead-lettered rather than lost.
+- With the real binary and the local queues, a malformed message was rejected on each of its 5 deliveries and then moved to `media-process-dlq`.
+- In AWS, `infra/scripts/dlq-alarm-test.sh` sends such a message and waits for the DLQ alarm to fire.
+
 **Running a job again is safe.** Every output key is derived from the job, so a rerun overwrites the same objects. Every result message's `event_id` is derived from the job and the message, so a rerun re-sends the same IDs and consumers' `event_id` dedupe drops the repeats. Every message is validated against its contract before it is sent.
 
 **Proof (S3-08 acceptance):**

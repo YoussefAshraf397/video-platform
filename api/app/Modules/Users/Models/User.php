@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
  * @property string $display_name
  * @property string|null $bio
  * @property string $status
+ * @property string $role
  * @property CarbonImmutable|null $email_verified_at
  * @property Carbon|null $created_at
  */

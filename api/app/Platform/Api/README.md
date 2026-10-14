@@ -11,10 +11,26 @@ Shared building blocks every module uses (design doc §22). They are demonstrate
 | **Caller id** | `CallerId::from($request)` returns the signed-in user's id (`401` if there is none); `CallerId::tryFrom($request)` returns `null` instead, for routes that work signed in or not. Use it instead of `$request->user()`, so modules don't depend on the Auth module's user class. |
 | **Unknown fields** | `KnownFields::assert($request, [...allowed])` turns any other body field into `422 UNKNOWN_FIELD` instead of silently ignoring it. |
 | **ETag / If-Match** | `Preconditions::etag($version)` for the `ETag` header; `Preconditions::expectedVersion($request)` reads `If-Match` (`428` if missing, `412` if it isn't one of our ETags). Make the write a conditional update on that version and throw `Preconditions::failed()` (`412`) when no row matches. |
+| **Rate limits** | Named limiters (`RateLimiter::for`) in each module's service provider, applied with `->middleware('throttle:<name>')`. Over the limit: `429 TOO_MANY_REQUESTS` with `Retry-After`; every limited response carries `X-RateLimit-Limit` / `X-RateLimit-Remaining`. Give each limit inside a limiter its own key (`ip:…`, `user:…`), or they share one counter. Current limits are listed below. |
 | **OpenAPI** | Generated from code by Scramble for routes under `/v1`. Export with `make openapi` (writes `api/openapi.json`, committed so PRs show API diffs). In local env the UI is at `/docs/api`. |
+
+## Rate limits (design doc §24.3)
+
+| Limiter | Endpoints | Limits | Defined in |
+|---|---|---|---|
+| `auth-login` | `POST /v1/auth/login` | 10/min and 100/h per IP (plus account lockout in `Login`) | Auth |
+| `auth-register` | `POST /v1/auth/register` | 5/h per IP | Auth |
+| `auth-email` | password reset, verification resend | 5/h per IP, 3/h per email | Auth |
+| `uploads-create` | `POST /v1/videos/{id}/uploads` | 30/h per IP, 20/h per user (on top of the 25/day session quota) | Uploads |
+| `uploads-sign` | `POST /v1/uploads/{id}/parts:sign` | 600/min per IP, 600/min per user (large uploads need many URLs) | Uploads |
+| `playback` | `GET /v1/videos/{id}/playback` | 300/min per IP, 300/min per user, **30/min per viewer and video** (stops cookie farming) | Playback |
+| `admin` | `/admin/v1/*` | 600/min per staff member | Users |
+
+Every request that reaches a limiter counts, including ones that then fail validation. Requests the limiter rejects don't count. `RateLimitsTest` spends each budget and checks the next request is limited and other users or IPs are not. Limits are tuned with real traffic. Per-tier quotas (new vs verified creators) come with trust tiers.
 
 ## Limits worth knowing
 
 - Cursors are base64 position markers and are not signed. A tampered cursor can only move the client's own position in a list it can already read. Don't put filters or permissions in a cursor.
 - Idempotency records live in the default cache store (Redis). If that store is flushed, the records are lost; at growth stage they move to a non-evicting Redis cluster (design doc §21.8).
+- Rate-limit counters live in the default cache store (Redis). If Redis is unavailable, limited endpoints fail with a 5xx. The design's fallback (a local in-memory limiter for auth and write endpoints, fail open for low-risk reads) isn't built yet.
 - The in-flight lock lasts 60 s. Endpoints that can run longer must not use `idempotent` without raising it.

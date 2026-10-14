@@ -452,3 +452,45 @@ func TestEachStepIsAChildSpanOfTheJob(t *testing.T) {
 		t.Errorf("child spans %v, want %v", names, want)
 	}
 }
+
+// S4-05: a corrupt file fails on the first attempt with its reason code (no retries wasted).
+func TestCorruptSourceFailsFastWithItsReasonCode(t *testing.T) {
+	e := setup(t)
+	req := e.request("truncated.mp4") // an upload cut off before the moov atom
+
+	if err := e.pipeline.Process(context.Background(), req); err != nil {
+		t.Fatalf("attempt 1 must settle the job, got %v", err)
+	}
+
+	msgs := e.messages()
+	if len(msgs) != 1 || msgs[0].EventType != "VideoProcessingFailed" {
+		t.Fatalf("messages %v", types(msgs))
+	}
+	failure := msgs[0].Payload["error"].(map[string]any)
+	if failure["code"] != "CORRUPT_SOURCE" || failure["retryable"] != false || msgs[0].Payload["failed_step"] != "probe" {
+		t.Errorf("payload %v", msgs[0].Payload)
+	}
+	if keys := e.keys(e.media, req.Output.Prefix); len(keys) != 0 {
+		t.Errorf("outputs for a corrupt source: %v", keys)
+	}
+}
+
+// failingResults can't reach the results queue.
+type failingResults struct{ Results }
+
+func (failingResults) Failed(context.Context, results.Job, string, string, string, bool) error {
+	return errors.New("SQS unavailable")
+}
+
+// If even the failure can't be reported, the message must not be deleted: SQS redelivers it and,
+// after the queue's maxReceiveCount, moves it to the DLQ, where the alarm catches it. A job is
+// never silently lost.
+func TestUnreportableFailureStaysOnTheQueue(t *testing.T) {
+	e := setup(t)
+	e.pipeline.Results = failingResults{e.pipeline.Results}
+	req := e.request("audio_only.m4a")
+
+	if err := e.pipeline.Process(context.Background(), req); err == nil {
+		t.Fatal("want an error, so the message is redelivered rather than deleted")
+	}
+}

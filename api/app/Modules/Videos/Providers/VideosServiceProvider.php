@@ -2,9 +2,11 @@
 
 namespace App\Modules\Videos\Providers;
 
+use App\Modules\Videos\Contracts\VideoAccess;
 use App\Modules\Videos\Contracts\VideoDirectory;
 use App\Modules\Videos\Contracts\VideoLifecycle;
 use App\Modules\Videos\Contracts\VideoMedia;
+use App\Modules\Videos\Services\AccessPolicies;
 use App\Modules\Videos\Services\ProcessedMedia;
 use App\Modules\Videos\Services\Publication;
 use App\Modules\Videos\Services\Videos;
@@ -21,6 +23,8 @@ final class VideosServiceProvider extends ServiceProvider
         $this->app->singleton(Videos::class);
         $this->app->singleton(VideoDirectory::class, Videos::class);
         $this->app->singleton(VideoMedia::class, ProcessedMedia::class);
+        $this->app->singleton(AccessPolicies::class);
+        $this->app->singleton(VideoAccess::class, AccessPolicies::class);
     }
 
     public function boot(): void

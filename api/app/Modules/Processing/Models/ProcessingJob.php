@@ -12,6 +12,7 @@ use Illuminate\Support\Carbon;
  * @property string $id
  * @property string $video_id
  * @property string $upload_session_id
+ * @property string|null $retry_of_job_id
  * @property int $processing_version
  * @property string $profile
  * @property string $status

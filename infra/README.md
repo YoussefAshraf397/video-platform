@@ -57,6 +57,8 @@ No AWS account is needed for any of these. CI runs all of them on every PR.
 | `make tf-emulator-test` | `envs/dev` **plans** in full and **applies** to a throwaway AWS emulator (52 resources), a second `plan` shows **no changes**, and `destroy` is clean. The emulator can't speak the protocol the AWS provider uses for CloudWatch, so the apply stubs the dashboard and alarms (they're planned, and covered by the module tests). |
 | Trivy (CI security job) | No HIGH/CRITICAL misconfigurations |
 
+In a real environment, `infra/scripts/dlq-alarm-test.sh` (with `AWS_PROFILE` for the account) sends one malformed job to `media-process` and waits until the worker has dead-lettered it and the DLQ alarm fires, then empties the DLQ.
+
 The emulator catches apply-time mistakes (wrong references, dependency cycles, module misuse) but not every AWS rule (IAM policy evaluation, quotas, region availability). The first real `terraform plan` in the dev account is still the final check.
 
 ## Guardrails worth knowing

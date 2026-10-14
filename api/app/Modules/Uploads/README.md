@@ -42,6 +42,7 @@ Responses that the idempotency middleware doesn't store (`409`, `422`) are recom
 | No live session for the video (an expired one is ended on the spot) | `409 UPLOAD_IN_PROGRESS`, naming the session to resume |
 | Video is `draft` or `upload_failed` | `409 VIDEO_NOT_UPLOADABLE` |
 | At most 25 sessions per user per rolling 24 h | `429 UPLOAD_QUOTA_EXCEEDED` with `Retry-After` |
+| Rate limits: 20/h per user, 30/h per IP (and `parts:sign` 600/min) | `429 TOO_MANY_REQUESTS` with `Retry-After` |
 
 Two concurrent creates for one video: a partial unique index allows one live session per video. The loser gets `409`, and its S3 upload is aborted.
 

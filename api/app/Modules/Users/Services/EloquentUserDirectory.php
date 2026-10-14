@@ -55,6 +55,7 @@ final class EloquentUserDirectory implements UserDirectory
             $user->display_name,
             $user->status,
             $user->email_verified_at,
+            $user->role,
         );
     }
 }

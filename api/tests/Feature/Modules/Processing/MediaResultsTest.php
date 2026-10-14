@@ -11,7 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\Support\Auth;
-use Tests\Support\Contracts;
+use Tests\Support\WorkerResults;
 
 uses(RefreshDatabase::class);
 
@@ -38,61 +38,10 @@ beforeEach(function () {
         ->pluck('envelope')->map(fn ($e) => json_decode($e, true)['payload']['to'])->all();
 });
 
-/** A result envelope as the worker builds it, checked against its contract. */
-function result(ProcessingJob $job, string $type, array $fields, ?string $eventId = null): array
-{
-    $schemas = ['VideoRenditionReady' => 'video-rendition-ready.v1', 'VideoProcessingCompleted' => 'video-processing-completed.v1', 'VideoProcessingFailed' => 'video-processing-failed.v1'];
-    $envelope = [
-        'event_id' => $eventId ?? (string) Str::uuid(), 'event_type' => $type, 'schema_version' => 1,
-        'occurred_at' => '2026-10-06T12:00:00.000Z', 'producer' => 'media-worker', 'aggregate_type' => 'video',
-        'aggregate_id' => $job->video_id, 'aggregate_version' => $job->processing_version, 'trace_id' => null,
-        'payload' => ['video_id' => $job->video_id, 'job_id' => $job->id, 'processing_version' => $job->processing_version, ...$fields],
-    ];
-    expect(Contracts::violations($schemas[$type], json_encode($envelope)))->toBeNull();
-
-    return $envelope;
-}
-
-function rendition(ProcessingJob $job, int $height): array
-{
-    $width = intdiv($height * 16, 9) + (intdiv($height * 16, 9) % 2);
-
-    return ['codec' => 'h264', 'width' => $width, 'height' => $height, 'frame_rate' => 30, 'bitrate_avg' => 800_000 * $height / 360,
-        'bitrate_peak' => 1_100_000 * $height / 360, 'playlist_key' => $job->output_prefix."h264_{$height}p30/playlist.m3u8", 'segment_duration_ms' => 4000];
-}
-
-function ready(ProcessingJob $job, int $height, ?string $eventId = null): array
-{
-    return result($job, 'VideoRenditionReady', ['rendition' => rendition($job, $height), 'master_playlist_key' => $job->output_prefix.'master.m3u8'], $eventId);
-}
-
-function completed(ProcessingJob $job, array $heights = [360, 720]): array
-{
-    $thumbs = [];
-    foreach ([[25, 2500], [50, 5000], [75, 7500]] as [$pct, $at]) {
-        foreach ([[1280, 720], [640, 360]] as [$w, $h]) {
-            foreach (['jpg', 'webp'] as $f) {
-                $thumbs[] = ['key' => $job->output_prefix."thumbs/{$pct}_{$w}x{$h}.{$f}", 'width' => $w, 'height' => $h, 'time_offset_ms' => $at];
-            }
-        }
-    }
-
-    return result($job, 'VideoProcessingCompleted', [
-        'duration_ms' => 10_000, 'source' => ['width' => 1920, 'height' => 1080, 'frame_rate' => 30, 'has_audio' => true],
-        'renditions' => array_map(fn ($h) => rendition($job, $h), $heights),
-        'master_playlist_key' => $job->output_prefix.'master.m3u8', 'thumbnails' => $thumbs,
-    ]);
-}
-
-function failed(ProcessingJob $job, string $code = 'NOT_A_VIDEO', string $step = 'validate', bool $retryable = false): array
-{
-    return result($job, 'VideoProcessingFailed', ['failed_step' => $step, 'error' => ['code' => $code, 'message' => 'internal detail', 'retryable' => $retryable]]);
-}
-
 it('makes the video READY on its first rendition', function () {
     $job = ($this->dispatch)();
 
-    $this->consumer->handle(ready($job, 360));
+    $this->consumer->handle(WorkerResults::ready($job, 360));
 
     expect($this->video->fresh()->status)->toBe('ready')
         ->and(($this->states)())->toBe(['uploaded', 'validating', 'queued_for_processing', 'processing', 'ready'])
@@ -103,10 +52,10 @@ it('makes the video READY on its first rendition', function () {
 
 it('adds later renditions without moving the video again', function () {
     $job = ($this->dispatch)();
-    $this->consumer->handle(ready($job, 360));
+    $this->consumer->handle(WorkerResults::ready($job, 360));
     $events = count(($this->states)());
 
-    $this->consumer->handle(ready($job, 720));
+    $this->consumer->handle(WorkerResults::ready($job, 720));
 
     expect(DB::table('video_variants')->where('video_id', $this->video->id)->orderBy('height')->pluck('height')->all())->toBe([360, 720])
         ->and(($this->states)())->toHaveCount($events);
@@ -114,9 +63,9 @@ it('adds later renditions without moving the video again', function () {
 
 it('records everything on completion', function () {
     $job = ($this->dispatch)();
-    $this->consumer->handle(ready($job, 360));
+    $this->consumer->handle(WorkerResults::ready($job, 360));
 
-    $this->consumer->handle(completed($job));
+    $this->consumer->handle(WorkerResults::completed($job));
 
     $video = $this->video->fresh();
     expect($video)->status->toBe('ready')->duration_ms->toBe(10_000)->source_width->toBe(1920)->source_height->toBe(1080)
@@ -132,7 +81,7 @@ it('records everything on completion', function () {
 describe('duplicates and ordering', function () {
     it('skips a redelivered result', function () {
         $job = ($this->dispatch)();
-        $message = ready($job, 360);
+        $message = WorkerResults::ready($job, 360);
 
         expect($this->consumer->handle($message))->toBeTrue()
             ->and($this->consumer->handle($message))->toBeFalse();
@@ -141,8 +90,8 @@ describe('duplicates and ordering', function () {
     it('handles completion arriving before the renditions it lists', function () {
         $job = ($this->dispatch)();
 
-        $this->consumer->handle(completed($job));
-        $this->consumer->handle(ready($job, 360));   // late, with its own event id
+        $this->consumer->handle(WorkerResults::completed($job));
+        $this->consumer->handle(WorkerResults::ready($job, 360));   // late, with its own event id
 
         expect($this->video->fresh()->status)->toBe('ready')
             ->and($job->fresh()->status)->toBe('succeeded')
@@ -155,7 +104,7 @@ describe('duplicates and ordering', function () {
         $new = ($this->dispatch)();
         expect($new->processing_version)->toBe(2);
 
-        $this->consumer->handle(completed($old));
+        $this->consumer->handle(WorkerResults::completed($old));
 
         expect(DB::table('video_variants')->where('video_id', $this->video->id)->count())->toBe(0)
             ->and($this->video->fresh())->status->toBe('validating')->duration_ms->toBeNull()
@@ -164,7 +113,7 @@ describe('duplicates and ordering', function () {
 
     it('ignores results for jobs it does not know', function () {
         $job = ($this->dispatch)();
-        $message = ready($job, 360);
+        $message = WorkerResults::ready($job, 360);
         $message['payload']['job_id'] = (string) Str::uuid();
 
         $this->consumer->handle($message);
@@ -177,7 +126,7 @@ describe('failures', function () {
     it('fails the video with the reason code when nothing is playable', function () {
         $job = ($this->dispatch)();
 
-        $this->consumer->handle(failed($job, 'NOT_A_VIDEO', 'validate'));
+        $this->consumer->handle(WorkerResults::failed($job, 'NOT_A_VIDEO', 'validate'));
 
         expect($this->video->fresh()->status)->toBe('processing_failed')
             ->and($job->fresh())->status->toBe('failed')->error_code->toBe('NOT_A_VIDEO')->failed_step->toBe('validate')->failure_retryable->toBeFalse();
@@ -192,16 +141,16 @@ describe('failures', function () {
             app(VideoLifecycle::class)->transition($this->video->id, VideoStatus::Processing, 'x');
         });
 
-        $this->consumer->handle(failed($job, 'RETRIES_EXHAUSTED', 'transcode', true));
+        $this->consumer->handle(WorkerResults::failed($job, 'RETRIES_EXHAUSTED', 'transcode', true));
 
         expect($this->video->fresh()->status)->toBe('processing_failed');
     });
 
     it('keeps a playable video READY when it fails later', function () {
         $job = ($this->dispatch)();
-        $this->consumer->handle(ready($job, 360));
+        $this->consumer->handle(WorkerResults::ready($job, 360));
 
-        $this->consumer->handle(failed($job, 'ENCODER_FAILED', 'transcode', true));
+        $this->consumer->handle(WorkerResults::failed($job, 'ENCODER_FAILED', 'transcode', true));
 
         expect($this->video->fresh()->status)->toBe('ready')
             ->and($job->fresh())->status->toBe('partially_succeeded')->error_code->toBe('ENCODER_FAILED');
@@ -209,9 +158,9 @@ describe('failures', function () {
 
     it('lets a later completion of the same job win', function () {
         $job = ($this->dispatch)();
-        $this->consumer->handle(failed($job, 'RETRIES_EXHAUSTED', 'upload', true));
+        $this->consumer->handle(WorkerResults::failed($job, 'RETRIES_EXHAUSTED', 'upload', true));
 
-        $this->consumer->handle(completed($job));
+        $this->consumer->handle(WorkerResults::completed($job));
 
         expect($this->video->fresh()->status)->toBe('ready')
             ->and($job->fresh())->status->toBe('succeeded')->error_code->toBeNull();
@@ -219,9 +168,9 @@ describe('failures', function () {
 
     it('never un-completes a job', function () {
         $job = ($this->dispatch)();
-        $this->consumer->handle(completed($job));
+        $this->consumer->handle(WorkerResults::completed($job));
 
-        $this->consumer->handle(failed($job));
+        $this->consumer->handle(WorkerResults::failed($job));
 
         expect($job->fresh()->status)->toBe('succeeded')->and($this->video->fresh()->status)->toBe('ready');
     });
@@ -231,7 +180,7 @@ it('records results for a video deleted meanwhile, without moving it', function 
     $job = ($this->dispatch)();
     DB::transaction(fn () => app(VideoLifecycle::class)->transition($this->video->id, VideoStatus::Deleted, 'owner_deleted'));
 
-    $this->consumer->handle(completed($job));
+    $this->consumer->handle(WorkerResults::completed($job));
 
     expect($this->video->fresh()->status)->toBe('deleted')
         ->and(DB::table('video_variants')->where('video_id', $this->video->id)->count())->toBe(2)
@@ -240,11 +189,11 @@ it('records results for a video deleted meanwhile, without moving it', function 
 
 it('moves the primary thumbnail to a newer processing version', function () {
     $v1 = ($this->dispatch)();
-    $this->consumer->handle(completed($v1));
+    $this->consumer->handle(WorkerResults::completed($v1));
     Video::whereKey($this->video->id)->update(['status' => 'uploading']);
     $v2 = ($this->dispatch)();
 
-    $this->consumer->handle(completed($v2));
+    $this->consumer->handle(WorkerResults::completed($v2));
 
     expect(DB::table('thumbnails')->where('video_id', $this->video->id)->where('is_primary', true)->value('processing_version'))->toBe(2)
         ->and(DB::table('thumbnails')->where('video_id', $this->video->id)->where('is_primary', true)->count())->toBe(1);
@@ -257,8 +206,8 @@ describe('GET /v1/videos/{id}/processing', function () {
 
     it('shows the creator how processing is going, without internal details', function () {
         $job = ($this->dispatch)();
-        $this->consumer->handle(ready($job, 360));
-        $this->consumer->handle(failed($job, 'ENCODER_FAILED', 'transcode', true));
+        $this->consumer->handle(WorkerResults::ready($job, 360));
+        $this->consumer->handle(WorkerResults::failed($job, 'ENCODER_FAILED', 'transcode', true));
 
         $this->getJson("/v1/videos/{$this->video->public_id}/processing", $this->asOwner)
             ->assertOk()
@@ -291,7 +240,7 @@ it('publishes on the first rendition when the creator chose publish_on_ready', f
     Video::whereKey($this->video->id)->update(['publish_on_ready' => true, 'visibility' => 'public']);
     $job = ($this->dispatch)();
 
-    $this->consumer->handle(ready($job, 360));
+    $this->consumer->handle(WorkerResults::ready($job, 360));
 
     expect($this->video->fresh()->status)->toBe('published')
         ->and(array_slice(($this->states)(), -2))->toBe(['ready', 'published']);

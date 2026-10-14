@@ -14,7 +14,14 @@ final readonly class UserRecord
         public string $displayName,
         public string $status,
         public ?DateTimeImmutable $emailVerifiedAt,
+        public string $role = 'user',
     ) {}
+
+    /** Platform staff who may use the admin API (/admin/v1). */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin' && $this->isActive();
+    }
 
     public function isActive(): bool
     {
