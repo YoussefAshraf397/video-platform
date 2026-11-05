@@ -89,7 +89,28 @@ Creating a job and sending its command is one shared service, `Services\JobQueue
 
 Proof: 10 tests (access, listing, retry end to end through the results consumer, idempotency, every refusal). Three deliberate breakages were caught: the admin check, retrying a job that isn't failed, and retrying an older job.
 
+## Captions (S4-06)
+
+Publishes a video's subtitle tracks (owned by the Videos module) with its playable processing version.
+
+- **Revisions.** `Services\CaptionPublisher` sends `MediaCaptionsRequested` (contract `media-captions-requested.v1`, topic `media-commands`) with the **whole current set** of tracks and the job's next `captions_revision`. The worker converts each track to `subs/{subtitle_id}.vtt` + `.m3u8` and writes a new master, `master.c{revision}.m3u8`: the job's base master (`master.m3u8`, never changed) plus a subtitle group.
+- **When.** On every `SubtitlesChanged` (a track completed or deleted), and when a job's output becomes final (`succeeded`, or `partially_succeeded`). The second covers tracks uploaded before or during processing, and re-attaches every track to a reprocessed version. Both lock the job row, so a change racing a completion is published by one of them. Until a job's output is final, nothing is sent.
+- **Results.** `VideoCaptionsPublished` (`video-captions-published.v1`) is applied only if its revision is newer than the job's `captions_published_revision`: the job's `captions_master_key` and `captions` (its tracks) move to it, and each track's outcome goes back to the Videos module (`ready`, or `failed` with the code). Older or repeated results are ignored, so out-of-order delivery can't go backwards.
+- **Playback.** `PlayableMedia::current()` returns the captions master once one is published (the base master before that) and its tracks, which the playback API lists in `captions`.
+- **Why a new master per revision:** nothing a CDN has cached is ever overwritten, and a player that loaded an older master keeps working (its files stay).
+
+Tested in `CaptionsTest`: each command is checked against its contract, and the cases are:
+- tracks completed after processing finishes;
+- tracks uploaded during processing;
+- the whole set on every change, with deletions;
+- out-of-order results;
+- failed and meanwhile-deleted tracks;
+- a reprocessed version;
+- a partially succeeded job.
+
+Breaking the revision check, or the publish on completion, makes it fail.
+
 ## Not yet built
 
-- Retrying a failed job (`processing_failed → queued_for_processing`), stuck-job detection, and the `GET /v1/videos/{id}/processing` status endpoint.
+- Stuck-job detection.
 - Retrying `partially_succeeded` jobs (the video is READY, so this needs a "reprocess" flow that swaps versions once the new one is ready), and a creator-facing "try again".

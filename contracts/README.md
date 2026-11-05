@@ -23,6 +23,8 @@ PHP validation lives in [api/tests/Support/Contracts.php](../api/tests/Support/C
 | `video-rendition-ready.v1` | media-worker → api | `media-results` | Another rendition is playable; the first one makes the video READY |
 | `video-processing-completed.v1` | media-worker → api | `media-results` | All renditions, master playlist and thumbnails are written |
 | `video-processing-failed.v1` | media-worker → api | `media-results` | Processing stopped for good (non-retryable error, or retries exhausted) |
+| `media-captions-requested.v1` | api → media-worker | `media-process` | Publish a processing version's complete set of subtitle tracks (S4-06) |
+| `video-captions-published.v1` | media-worker → api | `media-results` | The master playlist for one captions revision is written, with each track's outcome |
 | `video-state-changed.v1` | api → subscribers | topic `video-events` | A video changed status, one per transition. `event_type` is `VideoUploaded`, `VideoPublished`, `VideoUnpublished`, `VideoBlocked`, `VideoDeleted` or `VideoStateChanged` |
 
 ## Envelope fields

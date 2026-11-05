@@ -93,7 +93,7 @@ func run() error {
 	} else if n > 0 {
 		log.Warn("removed work left by a previous process that didn't shut down cleanly", "directories", n)
 	}
-	handler := jobs.NewHandler(validator, work.Process)
+	handler := jobs.NewHandler(validator, work.Process, work.Captions)
 
 	log.Info("media-worker started", "queue", cfg.ProcessQueue, "concurrency", cfg.Concurrency)
 	sqsworker.New(client, *queue.QueueUrl, handler, sqsworker.Options{

@@ -28,7 +28,7 @@ The whole matrix is tested (`PlaybackTest`: 14 states × 3 viewers). Deliberate 
   "streams": {"hls": "https://media.example.com/media/{video_id}/v1/master.m3u8"},
   "auth": {"type": "cookie", "expires_at": "…", "cookies": {"CloudFront-Policy": "…", "CloudFront-Signature": "…", "CloudFront-Key-Pair-Id": "…", "CloudFront-Hash-Algorithm": "SHA256"}},
   "thumbnails": {"primary": [{"url": "…/thumbs/50_1280x720.jpg", "width": 1280, "height": 720, "format": "jpg"}]},
-  "captions": [],
+  "captions": [{"language": "en", "label": "English", "kind": "captions", "url": "…/subs/{subtitle_id}.vtt"}],
   "resume_position_ms": null,
   "playback_session_id": "…"
 }
@@ -56,6 +56,7 @@ Upload a real video with [`docs/examples/upload-client.mjs`](../../../../docs/ex
 - **Plays like a real client.** It calls `GET /v1/videos/{id}/playback` (same origin as the API), lets the response set the signed cookies, and plays `streams.hls` with hls.js. hls.js 1.7.4 is pinned and integrity-checked. Safari falls back to native HLS.
 - **Sends the cookies.** Media is cross-origin, so segment requests go with credentials. The media origin's CORS must allow the page's origin with credentials; locally `docker/aws/init.sh` sets that on the `media` bucket.
 - **Signs in optionally**, through `POST /v1/auth/login`. The token is kept in memory only. Anonymous viewers get public and unlisted published videos. Signed in, you can preview your own `ready` or `unpublished` videos. Refusals show the API's problem code (e.g. `404 VIDEO_NOT_FOUND`, `409 VIDEO_NOT_PLAYABLE`, `429` with `Retry-After`).
+- **Toggles captions (S4-06):** a track picker fed by the subtitle tracks hls.js finds in the master playlist (the same ones the video's CC menu offers), plus the caption on screen right now.
 - **Shows rendition switching:**
   - The rendition table lists resolution, bitrate, frame rate and codecs, and highlights the one playing.
   - "Auto" (adaptive), or force a rendition.
@@ -113,5 +114,5 @@ Local baseline on Octane (8 workers): 3,000 requests at 20 concurrent, half anon
 
 - The CloudFront distribution, OAC and trusted key group (S4-03). Until then, cookies are signed correctly but nothing checks them. Its response headers policy must also allow the web app's and the test player's origins with credentials (CORS), as the local `media` bucket does.
 - Age verification for viewers, region policies and embed restrictions (GROWTH), and moderator preview of blocked videos (admin console).
-- Captions (S4-06), resume position (history) and the analytics beacon URL. (Rate limits: see the `playback` limiter in [Platform/Api](../../Platform/Api/README.md#rate-limits-design-doc-243).)
+- Resume position (history) and the analytics beacon URL. (Rate limits: see the `playback` limiter in [Platform/Api](../../Platform/Api/README.md#rate-limits-design-doc-243).)
 - Cookie-less clients (some TVs, casting receivers) need tokenised URLs at the edge (GROWTH).

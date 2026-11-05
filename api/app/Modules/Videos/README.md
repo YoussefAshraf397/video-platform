@@ -14,6 +14,10 @@ Owns video metadata and the video state machine (design doc §12): the `videos`,
 | `POST /v1/videos/{id}:unpublish` | Bearer | Owner only. The video is kept but only its owner sees it until republished. |
 | `GET /v1/me/videos` | Bearer | Your videos in every status except deleted, newest first, cursor-paginated. |
 | `GET /v1/categories` | — | Active categories in display order: `[{slug, name}]`. |
+| `POST /v1/videos/{id}/subtitles` | Bearer + `Idempotency-Key` | Owner only. Adds a subtitle track and returns a form upload for the file. See [Subtitles](#subtitles-s4-06). |
+| `POST /v1/videos/{id}/subtitles/{sid}:complete` | Bearer | Owner only. After the file is uploaded. Idempotent. |
+| `GET /v1/videos/{id}/subtitles` | Bearer | Owner only. The video's tracks with their status, newest first. |
+| `DELETE /v1/videos/{id}/subtitles/{sid}` | Bearer | Owner only. `204`. Players stop offering it once the next captions revision is published. |
 
 `{id}` is the 11-character `public_id` (random base64url). The internal UUID never leaves the API.
 
@@ -83,6 +87,29 @@ Processing records what it found and made through `Contracts\VideoMedia::recordP
 - `duration_ms`, `source_width` / `source_height` (display size), and the `processing_version` they came from. An older version never overwrites a newer one.
 - `thumbnails`: one row per candidate frame (`time_offset_ms`), with its files (sizes × JPEG/WebP) in `files`.
 - The candidate nearest the middle of the video becomes primary. It replaces an auto primary from an older version, but never a custom one. There is one primary per video (a partial unique index).
+
+## Subtitles (S4-06)
+
+Creators upload SRT or WebVTT files; viewers get WebVTT in the HLS master playlist, which players offer in their CC menu. This module owns the `subtitles` table (what the creator sees); the Processing module and the media worker convert the files and publish them with each processing version.
+
+**Adding a track:**
+1. `POST /v1/videos/{id}/subtitles` with `{language, format, size_bytes, label?, kind?}`.
+   - `language`: BCP 47 (`en`, `pt-BR`, `zh-Hant`), normalized (`en-us` → `en-US`).
+   - `format`: `srt` or `vtt`. `size_bytes`: the file's exact size, at most 2 MiB.
+   - `kind`: `subtitles` (default) or `captions`, which also describe sounds and music for deaf and hard-of-hearing viewers (players mark them CC/SDH).
+   - `label` defaults to the language's own name ("Português (Brasil)").
+
+   `201` returns the track (`status: awaiting_upload`) and `upload: {method: "POST", url, fields, expires_at}`.
+2. Upload the file within 15 minutes: `POST` `multipart/form-data` to `upload.url` with every field in `upload.fields`, then the file as `file` (it must come last). This is an S3 POST policy, not a presigned PUT, because S3 enforces its conditions itself: this key only, this Content-Type, exactly the declared size (`400 EntityTooLarge` otherwise). A presigned PUT would sign only the host.
+3. `POST …/subtitles/{sid}:complete`. The API checks the file is in S3 with the declared size (`409 SUBTITLE_NOT_UPLOADED`, `422 SUBTITLE_SIZE_MISMATCH`). The track becomes `processing`.
+
+**Then:** when the video's processing has finished (straight away if it already has), the track is converted and published: `ready`, or `failed` with the converter's reason in `error`, e.g. `CAPTIONS_INVALID` "line 14: expected a cue timing line". Fix the file, delete the track and add it again. Codes: `CAPTIONS_INVALID`, `CAPTIONS_EMPTY`, `CAPTIONS_ENCODING` (not UTF-8 / UTF-16), `CAPTIONS_TOO_LARGE`, `CAPTIONS_NOT_FOUND`.
+
+**Rules:**
+- One live track per language and kind (`409 SUBTITLE_EXISTS`: delete it first to replace it). A track whose upload was never completed stops holding the language when its upload expires.
+- At most 20 tracks per video (`409 SUBTITLE_LIMIT`). Not on blocked, rejected or deleted videos (`409 VIDEO_NOT_EDITABLE`).
+
+**How it reaches players:** completing or deleting a track fires the in-process `Events\SubtitlesChanged` inside the same transaction. The Processing module answers it with the next captions revision (see its README); the Processing module reads tracks and reports outcomes through `Contracts\VideoSubtitles`. Source files stay in the uploads bucket under `captions/{video_id}/{subtitle_id}/source`, so every new processing version gets them too.
 
 ## Tags
 

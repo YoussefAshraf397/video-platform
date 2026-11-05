@@ -6,9 +6,11 @@ use App\Modules\Videos\Contracts\VideoAccess;
 use App\Modules\Videos\Contracts\VideoDirectory;
 use App\Modules\Videos\Contracts\VideoLifecycle;
 use App\Modules\Videos\Contracts\VideoMedia;
+use App\Modules\Videos\Contracts\VideoSubtitles;
 use App\Modules\Videos\Services\AccessPolicies;
 use App\Modules\Videos\Services\ProcessedMedia;
 use App\Modules\Videos\Services\Publication;
+use App\Modules\Videos\Services\Subtitles;
 use App\Modules\Videos\Services\Videos;
 use App\Modules\Videos\Services\VideoStateMachine;
 use App\Modules\Videos\Services\VideoTransitioned;
@@ -25,6 +27,8 @@ final class VideosServiceProvider extends ServiceProvider
         $this->app->singleton(VideoMedia::class, ProcessedMedia::class);
         $this->app->singleton(AccessPolicies::class);
         $this->app->singleton(VideoAccess::class, AccessPolicies::class);
+        $this->app->singleton(Subtitles::class);
+        $this->app->singleton(VideoSubtitles::class, Subtitles::class);
     }
 
     public function boot(): void

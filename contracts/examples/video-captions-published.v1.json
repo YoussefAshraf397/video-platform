@@ -1,0 +1,34 @@
+{
+  "event_id": "0199b1f3-0005-7c3e-9d41-2f6b8a1c0e06",
+  "event_type": "VideoCaptionsPublished",
+  "schema_version": 1,
+  "occurred_at": "2026-10-04T12:05:02.311Z",
+  "producer": "media-worker",
+  "aggregate_type": "video",
+  "aggregate_id": "0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01",
+  "aggregate_version": 1,
+  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "payload": {
+    "video_id": "0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01",
+    "job_id": "0199b1f2-2222-7ccc-8ddd-0e0e0e0e0e01",
+    "processing_version": 1,
+    "captions_revision": 2,
+    "master_playlist_key": "media/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/v1/master.c2.m3u8",
+    "tracks": [
+      {
+        "subtitle_id": "0199b1f4-3333-7eee-8fff-0a0a0a0a0a01",
+        "status": "ready",
+        "playlist_key": "media/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/v1/subs/0199b1f4-3333-7eee-8fff-0a0a0a0a0a01.m3u8",
+        "vtt_key": "media/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/v1/subs/0199b1f4-3333-7eee-8fff-0a0a0a0a0a01.vtt",
+        "error": null
+      },
+      {
+        "subtitle_id": "0199b1f4-3333-7eee-8fff-0a0a0a0a0a02",
+        "status": "failed",
+        "playlist_key": null,
+        "vtt_key": null,
+        "error": { "code": "CAPTIONS_INVALID", "message": "line 14: expected a cue timing line (00:00:01.000 --> 00:00:02.000)" }
+      }
+    ]
+  }
+}

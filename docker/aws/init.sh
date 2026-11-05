@@ -8,11 +8,12 @@ for bucket in uploads media images; do
   aws s3api head-bucket --bucket "$bucket" 2>/dev/null || aws s3api create-bucket --bucket "$bucket" >/dev/null
 done
 
-# Browsers upload parts directly to the uploads bucket and must be able to read ETag (ADR-003).
+# Browsers upload directly to the uploads bucket: video parts with PUT, reading ETag (ADR-003), and
+# subtitle files with a POST form upload (S4-06).
 aws s3api put-bucket-cors --bucket uploads --cors-configuration '{
   "CORSRules": [{
     "AllowedOrigins": ["*"],
-    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedMethods": ["PUT", "POST", "GET", "HEAD"],
     "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3600

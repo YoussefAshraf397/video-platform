@@ -23,7 +23,7 @@ All credentials are local-only and never valid anywhere else.
 
 | Kind | Name | Used by |
 |---|---|---|
-| S3 bucket | `uploads` (CORS exposes `ETag`, sends `ObjectCreated` to `s3-upload-events`) | Upload module (S3-03) |
+| S3 bucket | `uploads` (CORS: PUT for video parts, exposing `ETag`; POST for subtitle form uploads. Sends `ObjectCreated` for `uploads/*/source` to `s3-upload-events`) | Upload module (S3-03), subtitle sources under `captions/` (S4-06) |
 | S3 bucket | `media` (CORS: `localhost:8000` and `localhost:3000` with credentials, for players sending the signed cookies) | Go worker outputs (HLS, thumbnails), played by the test player (S4-07) |
 | S3 bucket | `images` | Images |
 | SQS queue + DLQ | `media-process` (subscribed to `media-commands`), `media-results` | Laravel ↔ Go worker |
@@ -43,4 +43,5 @@ Every queue has a `<name>-dlq` with `maxReceiveCount` 5. When you add a queue or
 - **Where Floci differs from AWS** (checked with 2.4.0):
   - S3 event notifications ignore the target queue's `DelaySeconds`: `s3-upload-events` gets upload events at once instead of after 90 s, so reconciliation can run while the client's own `:complete` is still in flight. Harmless (completion is idempotent; the loser gets `UPLOAD_COMPLETING` and retries), but it's a race the delay prevents in AWS. Direct sends and SNS deliveries do honour the delay.
   - `DeleteTopic` on a topic that doesn't exist fails with `NotFound`; AWS succeeds.
+  - A POST form upload (S3 POST policy) must send `file` as a file part with a filename; AWS also accepts text. Browsers always send a filename, so clients are unaffected; the Postman collection sends files from `api/postman/files/`.
 - The Terraform emulator test (`make tf-emulator-test`) still uses its own throwaway Moto container.

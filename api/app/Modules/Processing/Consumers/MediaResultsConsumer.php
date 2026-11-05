@@ -3,11 +3,13 @@
 namespace App\Modules\Processing\Consumers;
 
 use App\Modules\Processing\Models\ProcessingJob;
+use App\Modules\Processing\Services\CaptionPublisher;
 use App\Modules\Videos\Contracts\IllegalVideoTransition;
 use App\Modules\Videos\Contracts\VideoDirectory;
 use App\Modules\Videos\Contracts\VideoLifecycle;
 use App\Modules\Videos\Contracts\VideoMedia;
 use App\Modules\Videos\Contracts\VideoStatus;
+use App\Modules\Videos\Contracts\VideoSubtitles;
 use App\Platform\Messaging\IdempotentConsumer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -15,7 +17,8 @@ use Illuminate\Support\Str;
 
 /**
  * The media worker's results (`media-results` queue, S4-01): VideoRenditionReady,
- * VideoProcessingCompleted and VideoProcessingFailed. The worker reports; Laravel decides state.
+ * VideoProcessingCompleted, VideoProcessingFailed and VideoCaptionsPublished (S4-06). The worker
+ * reports; Laravel decides state.
  *
  * - The first playable rendition makes the video READY (stepping through the states the worker
  *   doesn't report: validating → queued_for_processing → processing → ready).
@@ -23,6 +26,10 @@ use Illuminate\Support\Str;
  * - Failure before anything is playable makes the video PROCESSING_FAILED with the reason code
  *   (a later completion of the same job still wins);
  *   after a rendition is playable, the job is `partially_succeeded` and the video stays READY.
+ *
+ * - Once a job's output is final (succeeded, or partially succeeded), its captions are published
+ *   (CaptionPublisher). A captions result replaces the job's current captions only if its revision
+ *   is newer.
  *
  * Duplicates: the worker's event ids are deterministic, so IdempotentConsumer skips redeliveries
  * and a rerun job's repeats. Out of order: SQS doesn't keep order, so every write is an upsert,
@@ -36,6 +43,8 @@ final class MediaResultsConsumer extends IdempotentConsumer
         private readonly VideoLifecycle $lifecycle,
         private readonly VideoDirectory $videos,
         private readonly VideoMedia $media,
+        private readonly VideoSubtitles $subtitles,
+        private readonly CaptionPublisher $captions,
     ) {}
 
     public function name(): string
@@ -69,6 +78,7 @@ final class MediaResultsConsumer extends IdempotentConsumer
             'VideoRenditionReady' => $this->renditionReady($job, $payload),
             'VideoProcessingCompleted' => $this->completed($job, $payload),
             'VideoProcessingFailed' => $this->failed($job, $payload),
+            'VideoCaptionsPublished' => $this->captionsPublished($job, $payload),
             default => Log::warning('processing.unknown_result', ['event_type' => $type]),
         };
     }
@@ -103,6 +113,8 @@ final class MediaResultsConsumer extends IdempotentConsumer
                 'key' => (string) $t['key'], 'width' => (int) $t['width'], 'height' => (int) $t['height'],
                 'time_offset_ms' => (int) $t['time_offset_ms'],
             ], array_values((array) $payload['thumbnails'])));
+
+        $this->captions->publish($job);   // tracks uploaded before or during processing
     }
 
     /** @param array<string, mixed> $payload */
@@ -124,10 +136,47 @@ final class MediaResultsConsumer extends IdempotentConsumer
         ]);
         Log::warning('processing.failed', ['job_id' => $job->id, 'code' => $error['code'], 'step' => $payload['failed_step'], 'playable' => $playable]);
 
-        if (! $playable) {
+        if ($playable) {
+            $this->captions->publish($job);   // what is playable is final now
+        } else {
             $this->advance($job->video_id, [VideoStatus::QueuedForProcessing, VideoStatus::Processing, VideoStatus::ProcessingFailed],
                 Str::lower((string) $error['code']));
         }
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function captionsPublished(ProcessingJob $job, array $payload): void
+    {
+        $revision = (int) $payload['captions_revision'];
+        if ($revision <= $job->captions_published_revision) {
+            Log::info('processing.stale_captions', ['job_id' => $job->id, 'captions_revision' => $revision, 'published' => $job->captions_published_revision]);
+
+            return;
+        }
+
+        /** @var list<array<string, mixed>> $tracks */
+        $tracks = array_values((array) $payload['tracks']);
+        $ready = array_values(array_filter($tracks, fn (array $t) => $t['status'] === 'ready'));
+        $known = $this->subtitles->find($job->video_id, array_map(fn (array $t) => (string) $t['subtitle_id'], $ready));
+        $job->update([
+            'captions_published_revision' => $revision,
+            'captions_master_key' => (string) $payload['master_playlist_key'],
+            // What playback lists, in the master playlist's order.
+            'captions' => array_values(array_filter(array_map(fn (array $t) => isset($known[$t['subtitle_id']]) ? [
+                'subtitle_id' => (string) $t['subtitle_id'],
+                'language' => $known[$t['subtitle_id']]->language,
+                'label' => $known[$t['subtitle_id']]->label,
+                'kind' => $known[$t['subtitle_id']]->kind,
+                'playlist_key' => (string) $t['playlist_key'],
+                'vtt_key' => (string) $t['vtt_key'],
+            ] : null, $ready))),
+        ]);
+        $this->subtitles->recordConverted($job->video_id, array_map(fn (array $t) => [
+            'subtitle_id' => (string) $t['subtitle_id'],
+            'status' => (string) $t['status'],
+            'error_code' => $t['error'] === null ? null : (string) $t['error']['code'],
+            'error_detail' => $t['error'] === null ? null : (string) $t['error']['message'],
+        ], $tracks));
     }
 
     /**

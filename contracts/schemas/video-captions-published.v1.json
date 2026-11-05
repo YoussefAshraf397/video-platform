@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.video-platform.internal/video-captions-published.v1.json",
+  "title": "VideoCaptionsPublished",
+  "description": "From the media worker (queue: media-results): the master playlist for one captions revision is written. Tracks that couldn't be converted are reported as failed and left out of it.",
+  "allOf": [{ "$ref": "envelope.v1.json" }],
+  "properties": {
+    "event_type": { "const": "VideoCaptionsPublished" },
+    "schema_version": { "const": 1 },
+    "producer": { "const": "media-worker" },
+    "aggregate_type": { "const": "video" },
+    "payload": {
+      "allOf": [{ "$ref": "common.v1.json#/$defs/jobRef" }],
+      "unevaluatedProperties": false,
+      "required": ["captions_revision", "master_playlist_key", "tracks"],
+      "properties": {
+        "captions_revision": { "type": "integer", "minimum": 1 },
+        "master_playlist_key": { "type": "string", "minLength": 1, "description": "media/{video_id}/v{n}/master.c{captions_revision}.m3u8" },
+        "tracks": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["subtitle_id", "status", "playlist_key", "vtt_key", "error"],
+            "properties": {
+              "subtitle_id": { "$ref": "common.v1.json#/$defs/uuid" },
+              "status": { "type": "string", "enum": ["ready", "failed"] },
+              "playlist_key": { "type": ["string", "null"], "description": "The track's HLS media playlist (null when failed)." },
+              "vtt_key": { "type": ["string", "null"], "description": "The WebVTT file, for players that load it directly (null when failed)." },
+              "error": {
+                "type": ["object", "null"],
+                "additionalProperties": false,
+                "required": ["code", "message"],
+                "properties": {
+                  "code": { "$ref": "common.v1.json#/$defs/errorCode", "description": "e.g. CAPTIONS_NOT_FOUND, CAPTIONS_INVALID, CAPTIONS_EMPTY, CAPTIONS_ENCODING, CAPTIONS_TOO_LARGE. New codes may be added." },
+                  "message": { "type": "string", "maxLength": 1000 }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

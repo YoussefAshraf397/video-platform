@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.video-platform.internal/media-captions-requested.v1.json",
+  "title": "MediaCaptionsRequested",
+  "description": "Command from the API to the media worker (queue: media-process): publish a processing version's complete set of subtitle tracks. Convert each source to WebVTT and write a new master playlist, master.c{captions_revision}.m3u8, from the version's base master plus these tracks. Each request carries the whole set, not a change: an empty list means no tracks.",
+  "allOf": [{ "$ref": "envelope.v1.json" }],
+  "properties": {
+    "event_type": { "const": "MediaCaptionsRequested" },
+    "schema_version": { "const": 1 },
+    "producer": { "const": "api" },
+    "aggregate_type": { "const": "video" },
+    "payload": {
+      "allOf": [{ "$ref": "common.v1.json#/$defs/jobRef" }],
+      "unevaluatedProperties": false,
+      "required": ["output", "base_master_key", "captions_revision", "tracks"],
+      "properties": {
+        "output": { "$ref": "common.v1.json#/$defs/s3Prefix", "description": "The processing version's prefix, media/{video_id}/v{processing_version}/. Tracks go under subs/." },
+        "base_master_key": { "type": "string", "minLength": 1, "description": "The version's master playlist without subtitles, as transcoding wrote it. Never overwritten." },
+        "captions_revision": { "type": "integer", "minimum": 1, "description": "Increases with every request for this job; names the new master playlist." },
+        "tracks": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["subtitle_id", "language", "label", "kind", "format", "source"],
+            "properties": {
+              "subtitle_id": { "$ref": "common.v1.json#/$defs/uuid" },
+              "language": { "type": "string", "pattern": "^[a-z]{2,3}(-[A-Z][a-z]{3})?(-([A-Z]{2}|[0-9]{3}))?$", "description": "BCP 47 tag, e.g. en, pt-BR, zh-Hant." },
+              "label": { "type": "string", "minLength": 1, "maxLength": 80, "description": "Shown in players' track menus." },
+              "kind": { "type": "string", "enum": ["subtitles", "captions"], "description": "captions: also describes sounds and music (for deaf and hard-of-hearing viewers)." },
+              "format": { "type": "string", "enum": ["srt", "vtt"] },
+              "source": { "$ref": "common.v1.json#/$defs/s3Object", "description": "The file the creator uploaded." }
+            }
+          }
+        }
+      }
+    }
+  }
+}

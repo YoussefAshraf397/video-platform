@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Videos\Http\Controllers\CategoryController;
+use App\Modules\Videos\Http\Controllers\SubtitleController;
 use App\Modules\Videos\Http\Controllers\VideoController;
 use Illuminate\Support\Facades\Route;
 
@@ -14,6 +15,12 @@ Route::middleware('api')->prefix('v1')->group(function () {
         Route::post('videos/{video}:publish', [VideoController::class, 'publish']);
         Route::post('videos/{video}:unpublish', [VideoController::class, 'unpublish']);
         Route::get('me/videos', [VideoController::class, 'mine']);
+
+        // Subtitle tracks (S4-06): POST, PUT the file to the returned URL, then :complete.
+        Route::get('videos/{video}/subtitles', [SubtitleController::class, 'index']);
+        Route::post('videos/{video}/subtitles', [SubtitleController::class, 'store'])->middleware('idempotent');
+        Route::post('videos/{video}/subtitles/{subtitle}:complete', [SubtitleController::class, 'complete'])->whereUuid('subtitle');
+        Route::delete('videos/{video}/subtitles/{subtitle}', [SubtitleController::class, 'destroy'])->whereUuid('subtitle');
     });
 
     // Signed in or not: owners see their own drafts, everyone else only what's visible to the public.

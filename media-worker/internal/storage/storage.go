@@ -144,6 +144,8 @@ func ContentType(path string) string {
 		return "image/jpeg"
 	case ".webp":
 		return "image/webp"
+	case ".vtt":
+		return "text/vtt; charset=utf-8"
 	default:
 		return "application/octet-stream"
 	}

@@ -1,0 +1,37 @@
+{
+  "event_id": "0199b1f3-0004-7c3e-9d41-2f6b8a1c0e05",
+  "event_type": "MediaCaptionsRequested",
+  "schema_version": 1,
+  "occurred_at": "2026-10-04T12:05:00.000Z",
+  "producer": "api",
+  "aggregate_type": "video",
+  "aggregate_id": "0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01",
+  "aggregate_version": 2,
+  "trace_id": null,
+  "payload": {
+    "video_id": "0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01",
+    "job_id": "0199b1f2-2222-7ccc-8ddd-0e0e0e0e0e01",
+    "processing_version": 1,
+    "output": { "bucket": "media", "prefix": "media/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/v1/" },
+    "base_master_key": "media/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/v1/master.m3u8",
+    "captions_revision": 2,
+    "tracks": [
+      {
+        "subtitle_id": "0199b1f4-3333-7eee-8fff-0a0a0a0a0a01",
+        "language": "en",
+        "label": "English",
+        "kind": "captions",
+        "format": "srt",
+        "source": { "bucket": "uploads", "key": "captions/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/0199b1f4-3333-7eee-8fff-0a0a0a0a0a01/source" }
+      },
+      {
+        "subtitle_id": "0199b1f4-3333-7eee-8fff-0a0a0a0a0a02",
+        "language": "pt-BR",
+        "label": "Português (Brasil)",
+        "kind": "subtitles",
+        "format": "vtt",
+        "source": { "bucket": "uploads", "key": "captions/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/0199b1f4-3333-7eee-8fff-0a0a0a0a0a02/source" }
+      }
+    ]
+  }
+}

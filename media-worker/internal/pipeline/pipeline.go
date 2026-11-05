@@ -46,6 +46,7 @@ type Results interface {
 	RenditionReady(ctx context.Context, job results.Job, r results.Rendition, masterKey string) error
 	Completed(ctx context.Context, job results.Job, c results.Completed) error
 	Failed(ctx context.Context, job results.Job, step, code, message string, retryable bool) error
+	CaptionsPublished(ctx context.Context, job results.Job, revision int, masterKey string, tracks []results.CaptionTrack) error
 }
 
 // Pipeline holds the job's dependencies.

@@ -10,14 +10,15 @@ Consumes `MediaProcessRequested` jobs from the `media-process` SQS queue and tur
 cmd/media-worker/      main: wiring, signals
 internal/config/       environment configuration
 internal/sqsworker/    SQS consume loop: heartbeat, ack/release, graceful shutdown
-internal/jobs/         validates MediaProcessRequested against ../contracts and decodes it
+internal/jobs/         routes each command by event_type, validates it against ../contracts and decodes it
 internal/pipeline/     one job end to end: the order of steps, failure handling, retries
 internal/media/        ffprobe wrapper (typed Result) and upload validation rules with rejection codes
 internal/ladder/       which renditions to make (rungs, sizes, frame rate, bitrates, H.264 level)
 internal/transcode/    FFmpeg encoder + CMAF HLS packaging, master playlist
 internal/thumbs/       thumbnail candidates (25/50/75 %, black frames skipped), JPEG + WebP in 3 sizes
 internal/storage/      streaming S3 download, parallel/multipart S3 upload
-internal/results/      VideoRenditionReady / Completed / Failed to media-results
+internal/results/      VideoRenditionReady / Completed / Failed / CaptionsPublished to media-results
+internal/captions/     SRT/WebVTT → clean WebVTT, subtitle playlists, master playlist with a subtitle group
 internal/telemetry/    slog JSON logger, OpenTelemetry tracer provider
 internal/testcorpus/   golden corpus of source videos + expected outcomes (test-only)
 ```
@@ -66,6 +67,37 @@ Tests: `make test-worker` from the repo root.
 | SIGTERM, job still running after `SHUTDOWN_GRACE` | Job context cancelled; message released immediately for another worker |
 
 While a job runs, a heartbeat keeps the message invisible, so long transcodes are never picked up twice. SQS still delivers at least once (e.g. if a delete fails), so processors must be safe to repeat. Output keys are deterministic (ADR-006).
+
+## Captions (`MediaCaptionsRequested`, S4-06)
+
+`Pipeline.Captions` publishes one captions revision of a processing version:
+1. Read the base master playlist and the version's duration (sum of a rendition playlist's segments).
+2. For each track: download, convert, and write `subs/{subtitle_id}.vtt` (`text/vtt`) and `subs/{subtitle_id}.m3u8` (one segment spanning the video).
+3. Write `master.c{revision}.m3u8`: the base master plus an `EXT-X-MEDIA TYPE=SUBTITLES` group that every variant references. `captions` tracks get the SDH `CHARACTERISTICS`.
+4. Report `VideoCaptionsPublished` with each track's outcome.
+
+All files are new and immutable: named by subtitle id or revision, never overwritten.
+
+**Conversion** (`internal/captions`) rebuilds every cue from what it parsed and never copies the file through:
+- **Encodings:** UTF-8 with or without a BOM, or UTF-16 with a BOM.
+- **Timings:** SRT and WebVTT, including `,`/`.` mix-ups and WebVTT without hours.
+- **Markup:** only `<b>`, `<i>`, `<u>` and `<v Speaker>` are kept. SRT `<font>` and ASS `{\an8}` overrides are dropped. Every other `<`, `>` and `&` is escaped.
+- **WebVTT cue settings:** valid ones are kept; regions and styles are dropped.
+
+**Rejections** (the track is reported `failed`; the others still publish):
+- `CAPTIONS_INVALID`, with the line number;
+- `CAPTIONS_EMPTY`;
+- `CAPTIONS_ENCODING`;
+- `CAPTIONS_TOO_LARGE` (over 2 MiB or 20,000 cues);
+- `CAPTIONS_NOT_FOUND`.
+
+**Errors:**
+- S3 errors are retried by SQS.
+- A version without a base master is poison, so it goes to the DLQ.
+
+**Timing:** cues need no `X-TIMESTAMP-MAP`. The CMAF output starts at the source's time zero, and in hls.js each cue shows within its window (checked in the test player).
+
+**Checking with FFmpeg doesn't work:** FFmpeg 6.1's HLS demuxer doesn't support subtitle renditions ("Can't support the subtitle"), so it can't be used to check the master. The pipeline tests check the files; hls.js is the end-to-end check.
 
 ## A job (`internal/pipeline`)
 
@@ -159,5 +191,5 @@ Expectations live as data in `corpus.go`, so later stages (the transcoder in S2-
 
 - The container image and ECS service (S3-07). The image needs FFmpeg with libx264, libwebp and zimg (for HDR tone mapping); Ubuntu's `ffmpeg` package has all three. It should run non-root with a read-only root filesystem and `SCRATCH_DIR` on the scratch volume.
 - Laravel consuming `media-results` to move videos to `ready` / `processing_failed` (Sprint 4). Until then, results wait in the queue.
-- Captions (ADR-006 step 6), sprites, per-rendition parallel encoding (GROWTH), and the MediaConvert `Encoder` (specified, not built).
+- ASR auto-captions (SCALE), sprites, per-rendition parallel encoding (GROWTH), and the MediaConvert `Encoder` (specified, not built).
 - The worker doesn't report the `validating → queued_for_processing → processing` steps yet; the video stays `validating` until the first result.

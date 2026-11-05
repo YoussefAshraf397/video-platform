@@ -17,17 +17,22 @@ func newHandler(t *testing.T, process Processor) *Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewHandler(v, process)
+	return NewHandler(v, process, func(context.Context, CaptionsRequest) error {
+		t.Error("a MediaProcessRequested message reached the captions processor")
+		return nil
+	})
 }
 
-func exampleMessage(t *testing.T) string {
+func readExample(t *testing.T, name string) string {
 	t.Helper()
-	data, err := os.ReadFile("../../../contracts/examples/media-process-requested.v1.json")
+	data, err := os.ReadFile("../../../contracts/examples/" + name + ".json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	return string(data)
 }
+
+func exampleMessage(t *testing.T) string { return readExample(t, MediaProcessRequestedSchema) }
 
 func TestValidMessageIsDecodedAndProcessed(t *testing.T) {
 	var got ProcessRequest
@@ -75,5 +80,40 @@ func TestProcessorErrorsAreReturnedForRetry(t *testing.T) {
 
 	if err := h.Handle(context.Background(), sqsworker.Message{Body: exampleMessage(t)}); !errors.Is(err, boom) {
 		t.Fatalf("got %v, want %v", err, boom)
+	}
+}
+
+func TestCaptionsRequestGoesToTheCaptionsProcessor(t *testing.T) {
+	v, err := contracts.NewValidator()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got CaptionsRequest
+	h := NewHandler(v,
+		func(context.Context, ProcessRequest) error { t.Error("went to the transcoder"); return nil },
+		func(_ context.Context, req CaptionsRequest) error { got = req; return nil })
+
+	if err := h.Handle(context.Background(), sqsworker.Message{Body: readExample(t, MediaCaptionsRequestedSchema), ReceiveCount: 2}); err != nil {
+		t.Fatal(err)
+	}
+
+	if got.EventID != "0199b1f3-0004-7c3e-9d41-2f6b8a1c0e05" || got.Attempt != 2 || got.Revision != 2 ||
+		got.BaseMasterKey != "media/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/v1/master.m3u8" || len(got.Tracks) != 2 {
+		t.Fatalf("got %+v", got)
+	}
+	if want := (CaptionTrack{
+		SubtitleID: "0199b1f4-3333-7eee-8fff-0a0a0a0a0a02", Language: "pt-BR", Label: "Português (Brasil)", Kind: "subtitles", Format: "vtt",
+		Source: S3Object{Bucket: "uploads", Key: "captions/0199b1f0-1111-7aaa-8bbb-0c0c0c0c0c01/0199b1f4-3333-7eee-8fff-0a0a0a0a0a02/source"},
+	}); got.Tracks[1] != want {
+		t.Errorf("track: got %+v\nwant %+v", got.Tracks[1], want)
+	}
+}
+
+func TestUnknownCommandIsPoison(t *testing.T) {
+	h := newHandler(t, func(context.Context, ProcessRequest) error { t.Error("processed"); return nil })
+
+	body := strings.Replace(exampleMessage(t), `"MediaProcessRequested"`, `"MediaExplodeRequested"`, 1)
+	if err := h.Handle(context.Background(), sqsworker.Message{Body: body}); err == nil || !strings.Contains(err.Error(), "poison") {
+		t.Fatalf("expected a poison error, got %v", err)
 	}
 }

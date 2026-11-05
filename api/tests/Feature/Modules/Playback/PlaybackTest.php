@@ -151,6 +151,20 @@ describe('the response', function () {
         expect($response->json('auth.cookies.CloudFront-Key-Pair-Id'))->toBe('KTESTKEY');
     });
 
+    it('plays the captions master and lists its tracks once captions are published (S4-06)', function () {
+        $video = ($this->video)();
+        $prefix = "media/{$video->id}/v1/";
+        ProcessingJob::query()->where('video_id', $video->id)->update([
+            'captions_published_revision' => 2, 'captions_master_key' => $prefix.'master.c2.m3u8',
+            'captions' => json_encode([['subtitle_id' => 'a', 'language' => 'pt-BR', 'label' => 'Português (Brasil)', 'kind' => 'captions',
+                'playlist_key' => $prefix.'subs/a.m3u8', 'vtt_key' => $prefix.'subs/a.vtt']]),
+        ]);
+
+        ($this->play)($video)->assertOk()
+            ->assertJsonPath('streams.hls', MEDIA."/{$prefix}master.c2.m3u8")
+            ->assertJsonPath('captions', [['language' => 'pt-BR', 'label' => 'Português (Brasil)', 'kind' => 'captions', 'url' => MEDIA."/{$prefix}subs/a.vtt"]]);
+    });
+
     it('scopes the cookies under the path of a media base URL that has one', function () {
         // Locally media is served from a bucket path on the S3 emulator, not from a CDN's root.
         config(['playback.media_base_url' => 'http://localhost:4566/media-bucket/']);

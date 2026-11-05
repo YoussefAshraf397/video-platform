@@ -171,6 +171,29 @@ The `POST`s that create things are safe to retry **with the same `Idempotency-Ke
 - `422` with the same key means you reused a key for a *different* request: that's a bug.
 - Retry `429` after `Retry-After`, and `5xx` or network errors with the same backoff as parts.
 
+## Subtitles
+
+Subtitle and caption files (SRT or WebVTT, up to 2 MiB) use a simpler, single-request upload:
+
+```http
+POST /v1/videos/y4S2byb8ju0/subtitles
+Idempotency-Key: 7b2e…
+{"language": "pt-BR", "format": "srt", "size_bytes": 18234, "kind": "captions"}
+```
+
+→ `201` with `"id"` and `"upload": {"method": "POST", "url": "…", "fields": {…}, "expires_at": "…"}`. Within 15 minutes, send the file as a form:
+
+```js
+const form = new FormData();
+for (const [name, value] of Object.entries(upload.fields)) form.append(name, value);
+form.append('file', file);   // last: S3 ignores fields after the file
+await fetch(upload.url, { method: 'POST', body: form });   // 204
+```
+
+Send every field unchanged and the exact file you declared: S3 refuses another size (`400 EntityTooLarge`), type or key. Then `POST /v1/videos/{id}/subtitles/{subtitle_id}:complete` (`409 SUBTITLE_NOT_UPLOADED` if S3 doesn't have it yet).
+
+The track is `processing` until the video's processing has finished and the file is converted, then `ready`, or `failed` with a reason and line number in `error` (`GET /v1/videos/{id}/subtitles`). To replace a track, delete it and add the new file. `kind: "captions"` marks a track that also describes sounds and music (CC/SDH). Text must be UTF-8 (or UTF-16 with a byte order mark).
+
 ## Platform notes
 
 - **Browsers:** read parts with `file.slice(start, end)`; nothing needs the whole file in memory. Keep the upload state in IndexedDB so a reload can resume.

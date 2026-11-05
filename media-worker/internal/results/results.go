@@ -72,6 +72,21 @@ type Completed struct {
 	Thumbnails        []Thumbnail `json:"thumbnails"`
 }
 
+// CaptionTrack is one track's outcome in VideoCaptionsPublished.
+type CaptionTrack struct {
+	SubtitleID  string        `json:"subtitle_id"`
+	Status      string        `json:"status"` // ready or failed
+	PlaylistKey *string       `json:"playlist_key"`
+	VttKey      *string       `json:"vtt_key"`
+	Error       *CaptionError `json:"error"`
+}
+
+// CaptionError says why a track couldn't be converted.
+type CaptionError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
 // Publisher sends result messages to one queue.
 type Publisher struct {
 	sqs       Sender
@@ -107,6 +122,18 @@ func (p *Publisher) Failed(ctx context.Context, job Job, step, code, message str
 	}
 	return p.send(ctx, job, "VideoProcessingFailed", "video-processing-failed.v1", "failed", map[string]any{
 		"failed_step": step, "error": map[string]any{"code": code, "message": message, "retryable": retryable},
+	})
+}
+
+// CaptionsPublished reports that one captions revision's master playlist is written.
+func (p *Publisher) CaptionsPublished(ctx context.Context, job Job, revision int, masterKey string, tracks []CaptionTrack) error {
+	for i := range tracks {
+		if e := tracks[i].Error; e != nil && len(e.Message) > 1000 {
+			e.Message = e.Message[:1000]
+		}
+	}
+	return p.send(ctx, job, "VideoCaptionsPublished", "video-captions-published.v1", fmt.Sprintf("captions:%d", revision), map[string]any{
+		"captions_revision": revision, "master_playlist_key": masterKey, "tracks": tracks,
 	})
 }
 

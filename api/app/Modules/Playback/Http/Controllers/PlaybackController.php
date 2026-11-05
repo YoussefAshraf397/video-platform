@@ -66,7 +66,11 @@ final class PlaybackController
                 'primary' => array_map(fn (array $f) => ['url' => "{$base}/{$f['key']}", 'width' => $f['width'], 'height' => $f['height'], 'format' => $f['format']],
                     $policy->primaryThumbnail),
             ],
-            'captions' => [],
+            // The tracks the master playlist lists (hls.js and Safari find them there); the WebVTT
+            // URL is for players that load the file themselves. Covered by the same cookies.
+            'captions' => array_map(fn (array $c) => [
+                'language' => $c['language'], 'label' => $c['label'], 'kind' => $c['kind'], 'url' => "{$base}/{$c['vtt_key']}",
+            ], $output->captions),
             'resume_position_ms' => null,
             'playback_session_id' => (string) Str::uuid7(),
         ]);

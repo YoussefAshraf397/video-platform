@@ -11,7 +11,7 @@ final class WorkerResults
     /** A result envelope as the worker builds it, checked against its contract. */
     public static function result(ProcessingJob $job, string $type, array $fields, ?string $eventId = null): array
     {
-        $schemas = ['VideoRenditionReady' => 'video-rendition-ready.v1', 'VideoProcessingCompleted' => 'video-processing-completed.v1', 'VideoProcessingFailed' => 'video-processing-failed.v1'];
+        $schemas = ['VideoRenditionReady' => 'video-rendition-ready.v1', 'VideoProcessingCompleted' => 'video-processing-completed.v1', 'VideoProcessingFailed' => 'video-processing-failed.v1', 'VideoCaptionsPublished' => 'video-captions-published.v1'];
         $envelope = [
             'event_id' => $eventId ?? (string) Str::uuid(), 'event_type' => $type, 'schema_version' => 1,
             'occurred_at' => '2026-10-06T12:00:00.000Z', 'producer' => 'media-worker', 'aggregate_type' => 'video',
@@ -57,5 +57,20 @@ final class WorkerResults
     public static function failed(ProcessingJob $job, string $code = 'NOT_A_VIDEO', string $step = 'validate', bool $retryable = false): array
     {
         return self::result($job, 'VideoProcessingFailed', ['failed_step' => $step, 'error' => ['code' => $code, 'message' => 'internal detail', 'retryable' => $retryable]]);
+    }
+
+    /**
+     * @param  array<string, string|null>  $tracks  subtitle id → null if converted, or the error code it failed with
+     */
+    public static function captionsPublished(ProcessingJob $job, int $revision, array $tracks): array
+    {
+        return self::result($job, 'VideoCaptionsPublished', [
+            'captions_revision' => $revision,
+            'master_playlist_key' => $job->output_prefix."master.c{$revision}.m3u8",
+            'tracks' => array_map(fn (string $id, ?string $error) => $error === null
+                ? ['subtitle_id' => $id, 'status' => 'ready', 'playlist_key' => $job->output_prefix."subs/{$id}.m3u8", 'vtt_key' => $job->output_prefix."subs/{$id}.vtt", 'error' => null]
+                : ['subtitle_id' => $id, 'status' => 'failed', 'playlist_key' => null, 'vtt_key' => null, 'error' => ['code' => $error, 'message' => 'line 3: expected a cue timing line']],
+                array_keys($tracks), array_values($tracks)),
+        ]);
     }
 }

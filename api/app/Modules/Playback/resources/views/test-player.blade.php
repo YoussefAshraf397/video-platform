@@ -27,6 +27,7 @@
   h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
   form { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
   label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
+  select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
   input { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); min-width: 0; }
   button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text); cursor: pointer; }
   button.secondary { background: transparent; color: var(--accent); }
@@ -76,6 +77,13 @@
       </table>
       <p class="muted">"Auto" lets hls.js pick by bandwidth and buffer. Picking a rendition switches at once (the buffer is flushed). The playing rendition is highlighted.</p>
     </section>
+    <section aria-labelledby="captions-h">
+      <h2 id="captions-h">Captions</h2>
+      <form id="captions-form">
+        <label>Track <select id="captions" disabled><option value="-1">Off</option></select></label>
+      </form>
+      <p id="captions-note" class="muted">The tracks come from the master playlist (S4-06). The video's own CC menu offers the same ones.</p>
+    </section>
   </div>
   <div class="stack">
     <section aria-labelledby="signin-h">
@@ -108,6 +116,7 @@
         <dt>Bandwidth est.</dt><dd id="s-bw">–</dd>
         <dt>Buffer ahead</dt><dd id="s-buffer">–</dd>
         <dt>Dropped frames</dt><dd id="s-dropped">–</dd>
+        <dt>Caption on screen</dt><dd id="s-cue">–</dd>
       </dl>
     </section>
     <section aria-labelledby="log-h">
@@ -210,6 +219,7 @@
     state.refreshes = 0;
     set('i-refreshes', '0');
     renderLevels([]);
+    renderCaptions([]);
   }
 
   $('load-form').addEventListener('submit', async (event) => {
@@ -248,6 +258,12 @@
       hls.on(Hls.Events.LEVEL_SWITCHING, (_, data) => log('switching to ' + describe(hls.levels[data.level])));
       hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => { log('now playing ' + describe(hls.levels[data.level]), 'ok'); markPlaying(data.level); });
       hls.on(Hls.Events.FRAG_LOADED, (_, data) => { if (data.frag.sn === 'initSegment' || data.frag.sn % 5 === 0) log('loaded ' + data.frag.relurl + ' (' + describe(hls.levels[data.frag.level]) + ')'); });
+      hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, (_, data) => renderCaptions(data.subtitleTracks));
+      hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, (_, data) => {
+        $('captions').value = String(data.id);
+        if (data.id < 0) set('s-cue', '–');
+        log(data.id < 0 ? 'captions off' : 'captions: ' + describeTrack(hls.subtitleTracks[data.id]), 'ok');
+      });
       hls.on(Hls.Events.ERROR, (_, data) => onError(data));
       hls.loadSource(url);
       hls.attachMedia(video);
@@ -256,6 +272,7 @@
       video.src = url;
       renderLevels([]);
       $('levels').firstElementChild.firstElementChild.textContent = 'Native HLS player: renditions are chosen by the browser.';
+      set('captions-note', 'Native HLS player: use the video\'s own CC menu.');
       video.play().catch(() => log('autoplay blocked: press play'));
     } else {
       set('load-status', 'This browser can play neither hls.js (MSE) nor native HLS.', 'error');
@@ -324,6 +341,32 @@
       }
     }
   }
+
+  // ---- captions ------------------------------------------------------------------------------
+  const describeTrack = (t) => t.name + ' (' + t.lang + (t.characteristics ? ', captions' : '') + ')';
+
+  function renderCaptions(tracks) {
+    const select = $('captions');
+    select.replaceChildren(new Option('Off', '-1'));
+    tracks.forEach((t, i) => select.append(new Option(describeTrack(t), String(i))));   // Option() sets text, not HTML
+    select.disabled = tracks.length === 0;
+    if (state.hls) log(tracks.length + ' caption track' + (tracks.length === 1 ? '' : 's') + ' in the master playlist');
+  }
+
+  $('captions').addEventListener('change', (event) => {
+    const id = Number(event.target.value);
+    state.hls.subtitleDisplay = id >= 0;
+    state.hls.subtitleTrack = id;
+  });
+
+  // What the viewer sees now, from whichever text track is showing.
+  video.textTracks.addEventListener('addtrack', ({ track }) => {
+    track.addEventListener('cuechange', () => {
+      if (track.mode !== 'showing') return;
+      const cues = [...(track.activeCues || [])].map((c) => c.getCueAsHTML().textContent);   // as rendered: tags applied, &amp; decoded
+      set('s-cue', cues.length ? cues.join(' / ') : '–');
+    });
+  });
 
   function markPlaying(index) {
     for (const row of $('levels').rows) row.classList.toggle('playing', row.dataset.level === String(index));

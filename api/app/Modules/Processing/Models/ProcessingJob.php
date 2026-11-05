@@ -26,6 +26,10 @@ use Illuminate\Support\Carbon;
  * @property string|null $error_detail
  * @property string|null $failed_step
  * @property bool|null $failure_retryable
+ * @property int $captions_revision
+ * @property int $captions_published_revision
+ * @property string|null $captions_master_key
+ * @property list<array{subtitle_id: string, language: string, label: string, kind: string, playlist_key: string, vtt_key: string}>|null $captions
  * @property Carbon|null $started_at
  * @property Carbon|null $finished_at
  * @property Carbon|null $created_at
@@ -39,12 +43,16 @@ final class ProcessingJob extends Model
     /** Statuses after which a job's outcome is settled. */
     public const SETTLED = ['succeeded', 'partially_succeeded', 'failed', 'cancelled'];
 
+    /** Statuses in which the version's base master playlist is final, so captions can be published for it. */
+    public const FINISHED_OUTPUT = ['succeeded', 'partially_succeeded'];
+
     protected $guarded = [];
 
     protected function casts(): array
     {
         return [
             'processing_version' => 'integer', 'attempt' => 'integer', 'failure_retryable' => 'boolean',
+            'captions_revision' => 'integer', 'captions_published_revision' => 'integer', 'captions' => 'array',
             'started_at' => 'datetime', 'finished_at' => 'datetime',
         ];
     }
