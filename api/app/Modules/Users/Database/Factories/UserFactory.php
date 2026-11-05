@@ -14,6 +14,7 @@ final class UserFactory extends Factory
     {
         return [
             'email' => fake()->unique()->safeEmail(),
+            'handle' => fake()->unique()->bothify('user_########'),
             'display_name' => fake()->name(),
             'status' => 'active',
             'email_verified_at' => now(),

@@ -91,3 +91,32 @@ it('resends verification only to unverified accounts, answering the same for eve
     Mail::assertQueuedCount(1);
     Mail::assertQueued(VerifyEmailMail::class, fn ($mail) => $mail->hasTo('unverified@example.com'));
 });
+
+it('derives the handle from the display name, adding a numeric suffix when it is taken', function () {
+    $register = fn (string $email) => $this->postJson('/v1/auth/register', ['email' => $email, 'password' => 'a long enough password', 'display_name' => 'Mona Haddad'])->assertStatus(202);
+
+    $register('one@example.com');
+    $register('two@example.com');
+
+    expect(User::where('email', 'one@example.com')->value('handle'))->toBe('mona.haddad')
+        ->and(User::where('email', 'two@example.com')->value('handle'))->toBe('mona.haddad.2');
+});
+
+it('treats a handle held in a different case as taken', function () {
+    Auth::createUser('holder@example.com')->update(['handle' => 'MONA.HADDAD']);
+
+    $this->postJson('/v1/auth/register', ['email' => 'new@example.com', 'password' => 'a long enough password', 'display_name' => 'Mona Haddad'])->assertStatus(202);
+
+    expect(User::where('email', 'new@example.com')->value('handle'))->toBe('mona.haddad.2');
+});
+
+it('does not consume a handle when the email is already registered', function () {
+    Auth::createUser('ada@example.com');
+
+    $this->postJson('/v1/auth/register', ['email' => 'ADA@example.com', 'password' => 'a long enough password', 'display_name' => 'Mona Haddad'])->assertStatus(202);
+    $this->postJson('/v1/auth/register', ['email' => 'mona@example.com', 'password' => 'a long enough password', 'display_name' => 'Mona Haddad'])->assertStatus(202);
+
+    expect(User::where('email', 'ada@example.com')->count())->toBe(1)
+        ->and(User::where('email', 'mona@example.com')->value('handle'))->toBe('mona.haddad');
+    Mail::assertQueued(AccountAlreadyExistsMail::class, fn ($mail) => $mail->hasTo('ada@example.com'));
+});

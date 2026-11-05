@@ -16,5 +16,14 @@ interface UserDirectory
 
     public function findByEmail(string $email): ?UserRecord;
 
+    /** Case-insensitive; active users only. */
+    public function findByHandle(string $handle): ?UserRecord;
+
+    /**
+     * @param  list<string>  $ids
+     * @return array<string, UserRecord> keyed by user id; unknown ids are absent
+     */
+    public function findMany(array $ids): array;
+
     public function markEmailVerified(string $id): void;
 }

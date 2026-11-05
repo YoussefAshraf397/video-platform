@@ -21,7 +21,7 @@ it('returns the signed-in user', function () {
             'id' => $this->user->id,
             'email' => 'ada@example.com',
             'email_verified' => true,
-            'handle' => null,
+            'handle' => $this->user->handle,
             'display_name' => $this->user->display_name,
             'bio' => null,
             'status' => 'active',

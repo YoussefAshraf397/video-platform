@@ -15,7 +15,7 @@ use Illuminate\Support\Carbon;
  *
  * @property string $id
  * @property string $email
- * @property string|null $handle
+ * @property string $handle
  * @property string $display_name
  * @property string|null $bio
  * @property string $status
