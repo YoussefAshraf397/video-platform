@@ -22,7 +22,7 @@ final class ProblemRenderer
 {
     public static function shouldRender(Request $request): bool
     {
-        return $request->is('v1', 'v1/*') || $request->expectsJson();
+        return $request->is('v1', 'v1/*', 'admin/v1', 'admin/v1/*') || $request->expectsJson();
     }
 
     public static function render(Throwable $e): Response

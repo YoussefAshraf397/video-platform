@@ -65,6 +65,15 @@ describe('access', function () {
 
         $this->getJson('/admin/v1/processing/jobs', $this->asAdmin)->assertForbidden();
     });
+
+    it('answers problem details to clients that do not ask for JSON', function () {
+        $this->get('/admin/v1/processing/jobs')->assertUnauthorized()
+            ->assertHeader('Content-Type', 'application/problem+json')->assertJsonPath('code', 'UNAUTHENTICATED');
+        $this->get('/admin/v1/processing/jobs', $this->asCreator)->assertForbidden()
+            ->assertHeader('Content-Type', 'application/problem+json')->assertJsonPath('code', 'FORBIDDEN');
+        $this->post('/admin/v1/processing/jobs/'.Str::uuid().':retry', [], withKey($this->asAdmin))->assertNotFound()
+            ->assertJsonPath('code', 'JOB_NOT_FOUND');
+    });
 });
 
 describe('listing', function () {
