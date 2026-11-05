@@ -3,6 +3,8 @@
 namespace App\Modules\Playback\Providers;
 
 use App\Modules\Playback\Console\GenerateCdnKeysCommand;
+use App\Modules\Playback\Contracts\MediaUrls;
+use App\Modules\Playback\Services\SignedUrls;
 use App\Platform\Api\Http\CallerId;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -11,6 +13,11 @@ use Illuminate\Support\ServiceProvider;
 
 final class PlaybackServiceProvider extends ServiceProvider
 {
+    public function register(): void
+    {
+        $this->app->bind(MediaUrls::class, SignedUrls::class);
+    }
+
     public function boot(): void
     {
         $this->loadRoutesFrom(__DIR__.'/../routes.php');
