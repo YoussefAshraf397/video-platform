@@ -70,7 +70,9 @@ final class PlaybackController
             'resume_position_ms' => null,
             'playback_session_id' => (string) Str::uuid7(),
         ]);
-        foreach ($this->signer->cookies($values, '/'.$output->prefix, $expiresAt) as $cookie) {
+        // Under the base URL's own path, if it has one (locally: the emulator's bucket path).
+        $cookiePath = rtrim((string) parse_url($base, PHP_URL_PATH), '/').'/'.$output->prefix;
+        foreach ($this->signer->cookies($values, $cookiePath, $expiresAt) as $cookie) {
             $response->headers->setCookie($cookie);
         }
         // Credentials: never cached by browsers or proxies.

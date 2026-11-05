@@ -14,4 +14,7 @@ return [
     // base64-encoded PEM (Secrets Manager in AWS). Generate a pair with `php artisan playback:cdn-keys`.
     'key_pair_id' => env('CLOUDFRONT_KEY_PAIR_ID'),
     'private_key' => env('CLOUDFRONT_PRIVATE_KEY'),
+
+    // The internal hls.js test player at /dev/player (S4-07). Local and dev only; never in production.
+    'test_player' => (bool) env('PLAYBACK_TEST_PLAYER', false),
 ];

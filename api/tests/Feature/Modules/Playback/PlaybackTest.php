@@ -151,6 +151,18 @@ describe('the response', function () {
         expect($response->json('auth.cookies.CloudFront-Key-Pair-Id'))->toBe('KTESTKEY');
     });
 
+    it('scopes the cookies under the path of a media base URL that has one', function () {
+        // Locally media is served from a bucket path on the S3 emulator, not from a CDN's root.
+        config(['playback.media_base_url' => 'http://localhost:4566/media-bucket/']);
+        $video = ($this->video)();
+
+        $response = ($this->play)($video)->assertOk();
+
+        expect(collect($response->headers->getCookies())->map(fn ($c) => $c->getPath())->unique()->all())
+            ->toBe(["/media-bucket/media/{$video->id}/v1/"]);
+        expect($response->json('streams.hls'))->toStartWith("http://localhost:4566/media-bucket/media/{$video->id}/v1/");
+    });
+
     it('signs a policy CloudFront will accept: this prefix, this expiry, our key', function () {
         $video = ($this->video)();
 

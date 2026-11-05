@@ -36,13 +36,50 @@ The whole matrix is tested (`PlaybackTest`: 14 states × 3 viewers). Deliberate 
 
 `Cache-Control: no-store`: the response carries credentials.
 
+## Test player (S4-07)
+
+`GET /dev/player` is an internal page for demos and QA until the web app exists. It is only served when `PLAYBACK_TEST_PLAYER=true` (local and dev; the default is off, so production answers 404).
+
+**Open:** `http://localhost:8000/dev/player?v=<video id>`. To have something to play, run the pipeline next to the API:
+
+```bash
+php artisan serve                               # or octane:start
+php artisan outbox:relay
+php artisan messages:consume media-dispatcher
+php artisan messages:consume media-results
+cd ../media-worker && AWS_ENDPOINT_URL=http://localhost:4566 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_REGION=us-east-1 go run ./cmd/media-worker
+```
+
+Upload a real video with [`docs/examples/upload-client.mjs`](../../../../docs/examples/upload-client.mjs), wait for `ready`, then publish it or sign in on the page to preview it.
+
+**What the page does:**
+- **Plays like a real client.** It calls `GET /v1/videos/{id}/playback` (same origin as the API), lets the response set the signed cookies, and plays `streams.hls` with hls.js. hls.js 1.7.4 is pinned and integrity-checked. Safari falls back to native HLS.
+- **Sends the cookies.** Media is cross-origin, so segment requests go with credentials. The media origin's CORS must allow the page's origin with credentials; locally `docker/aws/init.sh` sets that on the `media` bucket.
+- **Signs in optionally**, through `POST /v1/auth/login`. The token is kept in memory only. Anonymous viewers get public and unlisted published videos. Signed in, you can preview your own `ready` or `unpublished` videos. Refusals show the API's problem code (e.g. `404 VIDEO_NOT_FOUND`, `409 VIDEO_NOT_PLAYABLE`, `429` with `Retry-After`).
+- **Shows rendition switching:**
+  - The rendition table lists resolution, bitrate, frame rate and codecs, and highlights the one playing.
+  - "Auto" (adaptive), or force a rendition.
+  - Stats: bandwidth estimate, buffer ahead and dropped frames.
+  - An event log.
+- **Refreshes cookies like a real player:** 2 minutes before `auth.expires_at`, and when the CDN answers `403`. It asks again at most every 10 s, so cookies that were refused while fresh don't cause a loop.
+
+**Checked in a browser (Chromium) against the local stack:**
+- Anonymous playback of a published video starts at 360p, and the adaptive logic moves it up to 720p.
+- Forcing 360p decodes 640×360 frames from the next segment on, and "Auto" goes back up.
+- The browser sends all four cookies under this video version's path only: not for another video or another `v{n}`. They aren't readable from JavaScript.
+- A simulated CDN `403` triggers a refresh, and playback continues.
+- An unpublished video gives `404` anonymously and plays for its signed-in owner.
+- No horizontal scroll at phone width.
+
+Locally the emulator doesn't check signatures, so wrong cookies would still play. Checking them needs CloudFront (S4-03).
+
 ## Signed cookies
 
 - **One custom policy covers a whole processing version:** `https://media…/media/{video_id}/v{n}/*`, so it covers the master playlist, rendition playlists, segments and thumbnails. Manifests stay static and cacheable, and nothing is rewritten per viewer. Every video is signed, public ones included (§13.3: hotlinking, fast takedowns). The cache key ignores signatures, so caching is unaffected.
 - **Lifetime:** the video's length plus 30 minutes, kept between 1 and 6 hours. While the length is still unknown (the first rendition is ready but processing hasn't finished), it's 1 hour. The player calls this endpoint again on a 403 from the CDN or shortly before `expires_at`. Unpublishing, making a video private or blocking it stops new cookies at once, and existing ones run out within their lifetime (§12.4). Urgent legal takedowns also remove the origin objects.
 - **Signing:** RSA with SHA-256 (`CloudFront-Hash-Algorithm`), using the AWS SDK's `CookieSigner`. A test verifies the signature against the public key and checks the decoded policy (resource and expiry).
 - **The `Set-Cookie` headers:**
-  - path `/media/{video_id}/v{n}/`;
+  - path `/media/{video_id}/v{n}/`, under `MEDIA_BASE_URL`'s own path if it has one (locally `/media/media/{video_id}/v{n}/`, the emulator's bucket path), so the browser sends them with every request for that version and no other;
   - `Domain` = `MEDIA_COOKIE_DOMAIN` (the parent, e.g. `.example.com`, so cookies set by `api.` reach `media.`);
   - `HttpOnly`, `SameSite=Lax` (the web app and media domain are same-site), and `Secure` over HTTPS.
 
@@ -74,7 +111,7 @@ Local baseline on Octane (8 workers): 3,000 requests at 20 concurrent, half anon
 
 ## Not yet built
 
-- The CloudFront distribution, OAC and trusted key group (S4-03). Until then, cookies are signed correctly but nothing checks them.
+- The CloudFront distribution, OAC and trusted key group (S4-03). Until then, cookies are signed correctly but nothing checks them. Its response headers policy must also allow the web app's and the test player's origins with credentials (CORS), as the local `media` bucket does.
 - Age verification for viewers, region policies and embed restrictions (GROWTH), and moderator preview of blocked videos (admin console).
 - Captions (S4-06), resume position (history) and the analytics beacon URL. (Rate limits: see the `playback` limiter in [Platform/Api](../../Platform/Api/README.md#rate-limits-design-doc-243).)
 - Cookie-less clients (some TVs, casting receivers) need tokenised URLs at the edge (GROWTH).

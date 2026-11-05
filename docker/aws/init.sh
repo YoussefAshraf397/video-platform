@@ -19,6 +19,18 @@ aws s3api put-bucket-cors --bucket uploads --cors-configuration '{
   }]
 }'
 
+# Players fetch media cross-origin with the signed cookies (design doc §13.3), so the origins are listed
+# (credentials can't go with "*"): the test player on the api (S4-07) and the web app. In AWS the
+# CloudFront response headers policy does this (S4-03).
+aws s3api put-bucket-cors --bucket media --cors-configuration '{
+  "CORSRules": [{
+    "AllowedOrigins": ["http://localhost:8000", "http://localhost:3000"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "MaxAgeSeconds": 3600
+  }]
+}'
+
 # --- SQS queues, each with a DLQ (maxReceiveCount 5, ADR-005) ---------------
 queue_arn() {
   aws sqs get-queue-attributes --queue-url "$1" --attribute-names QueueArn --query Attributes.QueueArn --output text

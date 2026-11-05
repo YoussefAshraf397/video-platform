@@ -14,6 +14,7 @@ final class PlaybackServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadRoutesFrom(__DIR__.'/../routes.php');
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'playback');
         $this->commands([GenerateCdnKeysCommand::class]);
 
         // Design doc §24.3: per IP (anonymous viewers), per user, and per viewer and video, which

@@ -24,7 +24,8 @@ All credentials are local-only and never valid anywhere else.
 | Kind | Name | Used by |
 |---|---|---|
 | S3 bucket | `uploads` (CORS exposes `ETag`, sends `ObjectCreated` to `s3-upload-events`) | Upload module (S3-03) |
-| S3 bucket | `media`, `images` | Go worker outputs, thumbnails |
+| S3 bucket | `media` (CORS: `localhost:8000` and `localhost:3000` with credentials, for players sending the signed cookies) | Go worker outputs (HLS, thumbnails), played by the test player (S4-07) |
+| S3 bucket | `images` | Images |
 | SQS queue + DLQ | `media-process` (subscribed to `media-commands`), `media-results` | Laravel ↔ Go worker |
 | SQS queue + DLQ | `s3-upload-events` (S3 `ObjectCreated` for `uploads/*/source`, delivery delayed 90 s) | Upload reconciliation (S3-05) |
 | SQS queue + DLQ | `media-dispatcher` (subscribed to `video-events`, filtered to `VideoUploaded`) | Starts processing (S3-06) |
