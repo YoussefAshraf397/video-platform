@@ -1,9 +1,11 @@
 <?php
 
+use App\Modules\Videos\Models\Subtitle;
 use App\Modules\Videos\Models\Video;
 use App\Modules\Videos\Services\Videos;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Support\Auth;
 
 uses(RefreshDatabase::class);
@@ -307,4 +309,64 @@ it('lists active categories in order', function () {
     expect($items)->toHaveCount(14)
         ->and($items[0])->toBe(['slug' => 'film-animation', 'name' => 'Film & Animation'])
         ->and(array_column($items, 'slug'))->not->toContain('gaming');
+});
+
+describe('extra fields', function () {
+    beforeEach(function () {
+        $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+        openssl_pkey_export($key, $private);
+        config([
+            'playback.media_base_url' => 'https://media.test.example',
+            'playback.key_pair_id' => 'KTESTKEY', 'playback.private_key' => base64_encode($private),
+        ]);
+        $this->ada->forceFill(['handle' => 'ada.l', 'display_name' => 'Ada Lovelace'])->save();
+        $this->track = fn (Video $v, string $language, string $status, string $kind = 'subtitles') => Subtitle::query()->create([
+            'video_id' => $v->id, 'language' => $language, 'label' => strtoupper($language), 'kind' => $kind, 'format' => 'srt',
+            'size_bytes' => 5, 'source_bucket' => 'uploads', 'source_key' => 'captions/'.Str::uuid7().'/source',
+            'status' => $status, 'upload_expires_at' => now()->addMinutes(15),
+        ]);
+    });
+
+    it('shows the creator and duration on a single video', function () {
+        $video = adaVideo(['duration_ms' => 61000]);
+
+        $this->getJson("/v1/videos/{$video->public_id}", $this->asAda)->assertOk()
+            ->assertJsonPath('duration_ms', 61000)
+            ->assertJsonPath('creator', ['handle' => 'ada.l', 'display_name' => 'Ada Lovelace']);
+        $this->postJson('/v1/videos', ['title' => 'x'], withKey($this->asAda))->assertCreated()
+            ->assertJsonPath('duration_ms', null)->assertJsonPath('creator.handle', 'ada.l');
+    });
+
+    it('adds thumbnails and distinct, sorted, live caption languages to my videos', function () {
+        $video = adaVideo();
+        $bare = adaVideo(['created_at' => now()->subDay()]);
+        foreach ([['en', 'ready', 'subtitles'], ['ar', 'processing', 'subtitles'], ['en', 'awaiting_upload', 'captions'], ['fr', 'deleted', 'subtitles'], ['de', 'failed', 'subtitles']] as [$lang, $status, $kind]) {
+            ($this->track)($video, $lang, $status, $kind);
+        }
+        DB::table('thumbnails')->insert([
+            'id' => (string) Str::uuid7(), 'video_id' => $video->id, 'processing_version' => 1, 'is_primary' => true, 'created_at' => now(),
+            'files' => json_encode([['key' => 'media/x/t_320.webp', 'width' => 320, 'height' => 180, 'format' => 'webp']]),
+        ]);
+
+        $items = collect($this->getJson('/v1/me/videos', $this->asAda)->assertOk()->json('items'))->keyBy('id');
+
+        expect($items[$video->public_id]['caption_languages'])->toBe(['ar', 'en'])
+            ->and($items[$video->public_id]['thumbnails'])->toHaveCount(1)
+            ->and($items[$video->public_id]['thumbnails'][0]['url'])->toStartWith('https://media.test.example/media/x/t_320.webp?')
+            ->and($items[$video->public_id]['creator']['handle'])->toBe('ada.l')
+            ->and($items[$bare->public_id]['caption_languages'])->toBe([])
+            ->and($items[$bare->public_id]['thumbnails'])->toBe([]);
+    });
+
+    it('keeps my videos to at most six queries for 20 videos', function () {
+        foreach (range(1, 20) as $i) {
+            ($this->track)(adaVideo(), 'en', 'ready');
+        }
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $this->getJson('/v1/me/videos?limit=20', $this->asAda)->assertOk()->assertJsonCount(20, 'items');
+
+        expect(count(DB::getQueryLog()))->toBeLessThanOrEqual(6);
+    });
 });

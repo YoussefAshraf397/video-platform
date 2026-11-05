@@ -2,9 +2,13 @@
 
 namespace App\Modules\Videos\Http\Controllers;
 
+use App\Modules\Users\Contracts\UserDirectory;
+use App\Modules\Users\Contracts\UserRecord;
+use App\Modules\Videos\Models\Subtitle;
 use App\Modules\Videos\Models\Video;
 use App\Modules\Videos\Services\Publication;
 use App\Modules\Videos\Services\Videos;
+use App\Modules\Videos\Services\VideoTiles;
 use App\Platform\Api\Http\CallerId;
 use App\Platform\Api\Http\KnownFields;
 use App\Platform\Api\Http\Preconditions;
@@ -24,7 +28,11 @@ final class VideoController
 {
     private const FIELDS = ['title', 'description', 'tags', 'category', 'language', 'visibility', 'age_restricted', 'made_for_kids', 'comments_enabled', 'publish_on_ready'];
 
-    public function __construct(private readonly Videos $videos) {}
+    public function __construct(
+        private readonly Videos $videos,
+        private readonly UserDirectory $users,
+        private readonly VideoTiles $tiles,
+    ) {}
 
     public function store(Request $request): JsonResponse
     {
@@ -115,10 +123,45 @@ final class VideoController
 
         return CursorPage::response(CursorPage::paginate($query, $request), function (array $videos) {
             /** @var list<Video> $videos */
-            $tags = $this->videos->tagsFor(array_map(fn (Video $v) => $v->id, $videos));
+            $ids = array_map(fn (Video $v) => $v->id, $videos);
+            $tags = $this->videos->tagsFor($ids);
+            $creators = $this->users->findMany(array_values(array_unique(array_map(fn (Video $v) => $v->uploader_user_id, $videos))));
+            $thumbnails = $this->tiles->thumbnailsFor($ids);
+            $languages = $this->captionLanguagesFor($ids);
 
-            return array_map(fn (Video $v) => self::present($v, $tags[$v->id]), $videos);
+            return array_map(fn (Video $v) => [
+                ...self::present($v, $tags[$v->id], $creators[$v->uploader_user_id] ?? throw self::missingCreator($v)),
+                'thumbnails' => $thumbnails[$v->id] ?? [],
+                'caption_languages' => $languages[$v->id] ?? [],
+            ], $videos);
         });
+    }
+
+    /**
+     * Distinct languages of each video's live caption tracks, sorted, in one query.
+     *
+     * @param  list<string>  $videoIds
+     * @return array<string, list<string>>
+     */
+    private function captionLanguagesFor(array $videoIds): array
+    {
+        if ($videoIds === []) {
+            return [];
+        }
+
+        $result = [];
+        $rows = Subtitle::query()->whereIn('video_id', $videoIds)->whereIn('status', Subtitle::LIVE)
+            ->select('video_id', 'language')->distinct()->orderBy('language')->get();
+        foreach ($rows as $row) {
+            $result[$row->video_id][] = $row->language;
+        }
+
+        return $result;
+    }
+
+    private static function missingCreator(Video $video): \LogicException
+    {
+        return new \LogicException("Video {$video->public_id} has no uploader record.");
     }
 
     /** @return array<string, list<mixed>> */
@@ -145,7 +188,9 @@ final class VideoController
 
     private function respond(Video $video, int $status = 200): JsonResponse
     {
-        return (new JsonResponse(self::present($video, $this->videos->tagsFor([$video->id])[$video->id]), $status))
+        $creator = $this->users->find($video->uploader_user_id) ?? throw self::missingCreator($video);
+
+        return (new JsonResponse(self::present($video, $this->videos->tagsFor([$video->id])[$video->id], $creator), $status))
             ->header('ETag', Preconditions::etag($video->state_version));
     }
 
@@ -153,7 +198,7 @@ final class VideoController
      * @param  list<string>  $tags
      * @return array<string, mixed>
      */
-    private static function present(Video $video, array $tags): array
+    private static function present(Video $video, array $tags, UserRecord $creator): array
     {
         return [
             'id' => $video->public_id,
@@ -164,6 +209,8 @@ final class VideoController
             'language' => $video->language,
             'visibility' => $video->visibility,
             'status' => $video->status,
+            'duration_ms' => $video->duration_ms,
+            'creator' => ['handle' => $creator->handle, 'display_name' => $creator->displayName],
             'age_restricted' => $video->age_restricted,
             'made_for_kids' => $video->made_for_kids,
             'comments_enabled' => $video->comments_enabled,
