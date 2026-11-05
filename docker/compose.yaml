@@ -1,5 +1,5 @@
 # Local development stack (S1-03). Start with `make up` from the repo root.
-# AWS services are emulated by Moto (S3, SQS, SNS). Moto keeps state in memory,
+# AWS services are emulated by Floci (S3, SQS, SNS). Floci keeps state in memory,
 # so resources are re-created by `make aws-init` (run automatically by `make up`).
 name: videoplatform
 
@@ -32,11 +32,14 @@ services:
       retries: 30
 
   aws:
-    image: motoserver/moto:5.2.3
+    image: floci/floci:2.4.0
+    environment:
+      # Same account id as AWS's documentation examples, which api/.env's SNS_TOPIC_ARN_PREFIX uses.
+      FLOCI_DEFAULT_ACCOUNT_ID: "123456789012"
     ports:
-      - "${AWS_PORT:-4566}:5000"
+      - "${AWS_PORT:-4566}:4566"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/moto-api/')"]
+      test: ["CMD", "/usr/local/bin/healthcheck.sh"]   # ships with the image (no curl in it)
       interval: 2s
       timeout: 3s
       retries: 30
@@ -53,7 +56,7 @@ services:
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       AWS_DEFAULT_REGION: us-east-1
-      AWS_ENDPOINT_URL: http://aws:5000
+      AWS_ENDPOINT_URL: http://aws:4566
     volumes:
       - ./aws:/init:ro
     entrypoint: ["sh", "/init/init.sh"]

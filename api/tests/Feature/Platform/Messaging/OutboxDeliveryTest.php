@@ -67,7 +67,14 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    $this->sns->deleteTopic(['TopicArn' => $this->topicArn]);
+    try {
+        $this->sns->deleteTopic(['TopicArn' => $this->topicArn]);
+    } catch (AwsException $e) {
+        // A test may have deleted it already. AWS treats that as success; the local emulator says NotFound.
+        if ($e->getAwsErrorCode() !== 'NotFound') {
+            throw $e;
+        }
+    }
     $this->sqs->deleteQueue(['QueueUrl' => $this->queueUrl]);
 });
 

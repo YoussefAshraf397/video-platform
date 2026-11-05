@@ -14,7 +14,7 @@ make help    # all targets
 |---|---|---|---|---|
 | PostgreSQL 17 | `postgres:17-alpine` | `localhost:5433` | `postgres:5432` | db `videoplatform` (tests: `videoplatform_test`), user/pass `videoplatform` |
 | Redis 7.4 | `redis:7.4-alpine` | `localhost:6379` | `redis:6379` | none |
-| AWS emulator (S3, SQS, SNS) | `motoserver/moto:5.2.3` | `http://localhost:4566` | `http://aws:5000` | key `test` / secret `test`, region `us-east-1` |
+| AWS emulator (S3, SQS, SNS) | `floci/floci:2.4.0` | `http://localhost:4566` (web console: `/_floci/ui`) | `http://aws:4566` | key `test` / secret `test`, region `us-east-1` |
 | Mailpit (SMTP + web inbox) | `axllent/mailpit:v1.27` | SMTP `localhost:1025`, UI http://localhost:8025 | `mailpit:1025` | none |
 
 All credentials are local-only and never valid anywhere else.
@@ -37,5 +37,9 @@ Every queue has a `<name>-dlq` with `maxReceiveCount` 5. When you add a queue or
 
 - **The AWS emulator keeps state in memory.** If the `aws` container restarts on its own, buckets and queues disappear, and `make check` will show failures. Run `make aws-init` to recreate them (bucket contents are lost).
 - **Port clashes:** override host ports in `docker/.env` (gitignored): `PG_PORT`, `REDIS_PORT`, `AWS_PORT`, `MAILPIT_SMTP_PORT`, `MAILPIT_UI_PORT`. Postgres defaults to 5433 so it doesn't clash with a locally installed Postgres.
-- **Presigned upload URLs** must use the host address (`http://localhost:4566`) so the browser can reach them. Server-side calls from containers use `http://aws:5000`. The Upload module needs separate "internal" and "public" endpoint settings (S3-03).
-- **Why Moto and not LocalStack:** current LocalStack images refuse to start without a LocalStack account auth token. Moto is open source (Apache-2.0) and needs no account.
+- **Presigned upload URLs** must use the host address (`http://localhost:4566`) so the browser can reach them. Server-side calls from containers use `http://aws:4566`. The Upload module needs separate "internal" and "public" endpoint settings (S3-03).
+- **Why Floci:** current LocalStack images refuse to start without a LocalStack account auth token. Floci is open source (MIT), needs no account, and is closer to AWS than Moto (which we used before) on what we use: e.g. it sends S3's `s3:TestEvent` when notifications are configured, like AWS. It runs with `FLOCI_DEFAULT_ACCOUNT_ID=123456789012`, the account id in `SNS_TOPIC_ARN_PREFIX` (its default is `000000000000`).
+- **Where Floci differs from AWS** (checked with 2.4.0):
+  - S3 event notifications ignore the target queue's `DelaySeconds`: `s3-upload-events` gets upload events at once instead of after 90 s, so reconciliation can run while the client's own `:complete` is still in flight. Harmless (completion is idempotent; the loser gets `UPLOAD_COMPLETING` and retries), but it's a race the delay prevents in AWS. Direct sends and SNS deliveries do honour the delay.
+  - `DeleteTopic` on a topic that doesn't exist fails with `NotFound`; AWS succeeds.
+- The Terraform emulator test (`make tf-emulator-test`) still uses its own throwaway Moto container.
