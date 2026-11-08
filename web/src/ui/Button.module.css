@@ -1,0 +1,32 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font: 600 14px/1 var(--font-body);
+  padding: 9px 16px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.primary {
+  background: var(--amber);
+  color: var(--plum-800);
+}
+
+.secondary {
+  background: transparent;
+  border-color: var(--plum-600);
+  color: var(--ivory);
+  font-weight: 500;
+  padding: 8px 14px;
+}
+
+.quiet {
+  background: transparent;
+  color: var(--mauve);
+}
+
+.quiet:hover {
+  color: var(--ivory);
+}

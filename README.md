@@ -7,6 +7,7 @@ Backend for a video-on-demand platform: uploads, processing, HLS playback, engag
 | Path | What | Owner |
 |---|---|---|
 | [`api/`](api/) | Laravel modular monolith: every business module (auth, users, channels, videos, uploads, playback, engagement, admin) | Laravel team |
+| [`web/`](web/) | React single-page app (Vite, TypeScript): browse, watch, upload, studio | Web team |
 | [`media-worker/`](media-worker/) | Go service: probe, transcode (FFmpeg), HLS packaging, thumbnails | Go engineer |
 | [`contracts/`](contracts/) | JSON Schemas for messages exchanged between Laravel and Go | Both |
 | [`infra/`](infra/) | Infrastructure as code (AWS) | Platform lead |
@@ -36,6 +37,8 @@ make check   # verify everything is reachable
 ```
 
 Ports, credentials and AWS resources are listed in [docker/README.md](docker/README.md). To set up the Laravel app see [api/README.md](api/README.md), then run `make test`. The Go worker arrives with S1-10.
+
+The web app needs Node 22: `make web-install`, then `make web-dev` serves it on <http://localhost:3000> (the API runs on port 8000). See [web/README.md](web/README.md).
 
 ## CI
 

@@ -9,7 +9,7 @@ TF           := $(DOCKER_RUN) -v $(HOME)/.terraform.d/plugin-cache:/plugins -e T
                 -v $(HOME)/.aws:/tmp/.aws -e AWS_PROFILE $(TF_IMAGE)
 TFLINT       := $(DOCKER_RUN) -v $(HOME)/.tflint.d:/tflint -e TFLINT_PLUGIN_DIR=/tflint/plugins -w /repo/infra $(TFLINT_IMAGE)
 
-.PHONY: help up down reset ps logs aws-init check psql test test-api test-contracts test-worker openapi tf tf-check tf-emulator-test
+.PHONY: help up down reset ps logs aws-init check psql test test-api test-contracts test-worker openapi tf tf-check tf-emulator-test web-install web-dev web-test web-types
 
 help: ## List available targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-10s %s\n", $$1, $$2}'
@@ -74,3 +74,15 @@ tf-check: ## Terraform fmt + validate + tflint for every root, and module tests 
 
 tf-emulator-test: ## Apply envs/dev to a throwaway AWS emulator, check no drift, destroy
 	infra/scripts/emulator-test.sh
+
+web-install: ## Install the web app's npm dependencies
+	cd web && npm install
+
+web-dev: ## Run the web app on http://localhost:3000
+	cd web && npm run dev
+
+web-test: ## Run the web app's unit tests
+	cd web && npm test
+
+web-types: ## Regenerate web/src/api/schema.d.ts from api/openapi.json
+	cd web && npm run api:types

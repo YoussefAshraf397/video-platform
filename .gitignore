@@ -30,4 +30,6 @@ infra/**/terraform.tfvars
 infra/modules/**/.terraform.lock.hcl
 
 
+web/node_modules
+web/dist
 .superpowers/

@@ -1,0 +1,22 @@
+:root {
+  --plum-900: #120d18;
+  --plum-800: #1e1626;
+  --plum-700: #2a2033;
+  --plum-600: #3a2e44;
+  --ivory: #f3e9dc;
+  --mauve: #a795a8;
+  --amber: #ffb547;
+  --rose: #c98b9b;
+  --ok: #8fd18b;
+  --warn: #ffb547;
+  --bad: #ff8a7a;
+
+  --text-13: 13px;
+  --text-15: 15px;
+  --text-20: 20px;
+  --text-32: 32px;
+  --text-44: 44px;
+
+  --font-body: 'Figtree Variable', system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque Variable', system-ui, sans-serif;
+}
