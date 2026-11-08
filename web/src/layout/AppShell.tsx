@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Link, NavLink, Outlet } from 'react-router'
+import { useCategories } from '../api/useCategories'
 import { buttonClass } from '../ui/Button'
 import styles from './AppShell.module.css'
 
@@ -81,6 +82,23 @@ function MenuButton({
   )
 }
 
+function CategoriesPanel({ close }: { close: () => void }) {
+  const q = useCategories()
+  if (q.isPending) return <p className={styles.empty}>Loading categories…</p>
+  if (q.isError) return <p className={styles.empty}>Couldn't load categories</p>
+  return (
+    <ul className={styles.list}>
+      {q.data.map((c) => (
+        <li key={c.slug}>
+          <Link to={`/categories/${c.slug}`} className={styles.menuItem} onClick={close}>
+            {c.name}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function AppShell({ user, onSignOut }: Props) {
   return (
     <>
@@ -96,7 +114,7 @@ export function AppShell({ user, onSignOut }: Props) {
             label="Categories"
             className={styles.link}
             menuClassName={`${styles.menu} ${styles.menuStart}`}
-            panel={() => <p className={styles.empty}>Categories load here soon</p>}
+            panel={(close) => <CategoriesPanel close={close} />}
           >
             Categories
           </MenuButton>

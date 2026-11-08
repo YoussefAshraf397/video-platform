@@ -9,6 +9,8 @@ import { SignIn } from './pages/account/SignIn'
 import { ForgotPassword } from './pages/account/ForgotPassword'
 import { VerifyEmail } from './pages/account/VerifyEmail'
 import { ResetPassword } from './pages/account/ResetPassword'
+import { Home } from './pages/viewer/Home'
+import { Category } from './pages/viewer/Category'
 import { Settings } from './pages/account/Settings'
 
 function ShellLayout() {
@@ -26,8 +28,8 @@ export const routes: RouteObject[] = [
   {
     element: <ShellLayout />,
     children: [
-      { index: true, element: <Placeholder name="Home" /> },
-      page('categories/:slug', 'Category'),
+      { index: true, element: <Home /> },
+      { path: 'categories/:slug', element: <Category /> },
       page('watch/:videoId', 'Watch'),
       { path: 'sign-up', element: <SignUp /> },
       { path: 'sign-in', element: <SignIn /> },

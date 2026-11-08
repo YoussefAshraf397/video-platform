@@ -1,7 +1,18 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { http, HttpResponse } from 'msw'
 import { AppShell } from './AppShell'
+import { API, server } from '../test/msw'
+
+beforeEach(() => {
+  server.use(
+    http.get(`${API}/v1/categories`, () =>
+      HttpResponse.json({ items: [{ slug: 'music', name: 'Music' }, { slug: 'gaming', name: 'Gaming' }] }),
+    ),
+  )
+})
 
 type User = { handle: string; display_name: string } | null
 
@@ -13,7 +24,11 @@ function renderShell(user?: User, onSignOut?: () => void) {
       children: [{ index: true, element: <p>Page body</p> }],
     },
   ])
-  return render(<RouterProvider router={router} />)
+  return render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  )
 }
 
 describe('AppShell', () => {
@@ -73,19 +88,25 @@ describe('AppShell', () => {
   })
 
   it('keeps the menu open when clicking non-focusable content inside it', async () => {
+    server.use(http.get(`${API}/v1/categories`, async () => new Promise(() => {})))
     const user = userEvent.setup()
     renderShell()
     await user.click(screen.getByRole('button', { name: 'Categories' }))
-    await user.click(screen.getByText('Categories load here soon'))
-    expect(screen.getByText('Categories load here soon')).toBeInTheDocument()
+    await user.click(screen.getByText('Loading categories…'))
+    expect(screen.getByText('Loading categories…')).toBeInTheDocument()
   })
 
-  it('opens the Categories disclosure', async () => {
+  it('lists categories from the API and closes when one is chosen', async () => {
     const user = userEvent.setup()
     renderShell()
     const trigger = screen.getByRole('button', { name: 'Categories' })
     await user.click(trigger)
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByText('Categories load here soon')).toBeInTheDocument()
+    const music = await screen.findByRole('link', { name: 'Music' })
+    expect(music).toHaveAttribute('href', '/categories/music')
+    expect(screen.getByRole('link', { name: 'Gaming' })).toBeInTheDocument()
+    await user.click(music)
+    expect(screen.queryByRole('link', { name: 'Music' })).not.toBeInTheDocument()
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
 })

@@ -21,9 +21,15 @@ beforeEach(() => {
 })
 
 describe('routes', () => {
-  it('renders the profile for /@handle, including dots', () => {
+  it('renders the profile for /@handle, including dots', async () => {
+    server.use(
+      http.get(`${API}/v1/users/mona.makes`, () =>
+        HttpResponse.json({ handle: 'mona.makes', display_name: 'Mona Makes', bio: null, created_at: null }),
+      ),
+      http.get(`${API}/v1/users/mona.makes/videos`, () => HttpResponse.json({ items: [], next_cursor: null, has_more: false })),
+    )
     at('/@mona.makes')
-    expect(screen.getByRole('heading', { name: 'Profile @mona.makes' })).toBeInTheDocument()
+    expect(await screen.findByText('@mona.makes')).toBeInTheDocument()
   })
 
   it('shows Not found for a bare segment', () => {
