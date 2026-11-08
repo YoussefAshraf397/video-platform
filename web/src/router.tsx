@@ -17,12 +17,6 @@ function ShellLayout() {
   return <AppShell user={status === 'signed-in' ? me : null} onSignOut={() => void signOut()} />
 }
 
-function ShellLayout() {
-  const { status, me, signOut } = useSession()
-  // While loading, render signed out so nothing flashes.
-  return <AppShell user={status === 'signed-in' ? me : null} onSignOut={() => void signOut()} />
-}
-
 const page = (path: string, name: string) => ({
   path,
   element: <Placeholder name={name} />,
