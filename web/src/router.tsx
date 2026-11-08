@@ -1,7 +1,14 @@
 import { createBrowserRouter, type RouteObject } from 'react-router'
 import { AppShell } from './layout/AppShell'
+import { useSession } from './auth/SessionProvider'
 import { Placeholder } from './pages/Placeholder'
 import { ProfileRoute } from './pages/Profile'
+
+function ShellLayout() {
+  const { status, me, signOut } = useSession()
+  // While loading, render signed out so nothing flashes.
+  return <AppShell user={status === 'signed-in' ? me : null} onSignOut={() => void signOut()} />
+}
 
 const page = (path: string, name: string) => ({
   path,
@@ -10,7 +17,7 @@ const page = (path: string, name: string) => ({
 
 export const routes: RouteObject[] = [
   {
-    element: <AppShell />,
+    element: <ShellLayout />,
     children: [
       { index: true, element: <Placeholder name="Home" /> },
       page('categories/:slug', 'Category'),
