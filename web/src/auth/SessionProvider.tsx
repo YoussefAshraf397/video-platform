@@ -15,8 +15,6 @@ export type SessionValue = {
   signIn(email: string, password: string): Promise<void>
   signOut(): Promise<void>
   signOutEverywhere(): Promise<void>
-  /** Replaces the cached profile, for example with the response to a profile edit. */
-  updateMe(me: Me): void
 }
 
 const SessionContext = createContext<SessionValue | null>(null)
@@ -89,7 +87,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const signOutEverywhere = useCallback(() => end('/v1/auth/logout-all'), [end])
 
   const value = useMemo(
-    () => ({ status, me, signIn, signOut, signOutEverywhere, updateMe: setMe }),
+    () => ({ status, me, signIn, signOut, signOutEverywhere }),
     [status, me, signIn, signOut, signOutEverywhere],
   )
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
