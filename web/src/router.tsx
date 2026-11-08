@@ -1,7 +1,21 @@
 import { createBrowserRouter, type RouteObject } from 'react-router'
 import { AppShell } from './layout/AppShell'
+import { useSession } from './auth/SessionProvider'
 import { Placeholder } from './pages/Placeholder'
 import { ProfileRoute } from './pages/Profile'
+import { RequireSignIn } from './auth/RequireSignIn'
+import { SignUp } from './pages/account/SignUp'
+import { SignIn } from './pages/account/SignIn'
+import { ForgotPassword } from './pages/account/ForgotPassword'
+import { VerifyEmail } from './pages/account/VerifyEmail'
+import { ResetPassword } from './pages/account/ResetPassword'
+import { Settings } from './pages/account/Settings'
+
+function ShellLayout() {
+  const { status, me, signOut } = useSession()
+  // While loading, render signed out so nothing flashes.
+  return <AppShell user={status === 'signed-in' ? me : null} onSignOut={() => void signOut()} />
+}
 
 const page = (path: string, name: string) => ({
   path,
@@ -10,17 +24,17 @@ const page = (path: string, name: string) => ({
 
 export const routes: RouteObject[] = [
   {
-    element: <AppShell />,
+    element: <ShellLayout />,
     children: [
       { index: true, element: <Placeholder name="Home" /> },
       page('categories/:slug', 'Category'),
       page('watch/:videoId', 'Watch'),
-      page('sign-up', 'Sign up'),
-      page('sign-in', 'Sign in'),
-      page('forgot-password', 'Forgot password'),
-      page('verify-email', 'Verify email'),
-      page('reset-password', 'Reset password'),
-      page('settings', 'Settings'),
+      { path: 'sign-up', element: <SignUp /> },
+      { path: 'sign-in', element: <SignIn /> },
+      { path: 'forgot-password', element: <ForgotPassword /> },
+      { path: 'verify-email', element: <VerifyEmail /> },
+      { path: 'reset-password', element: <ResetPassword /> },
+      { path: 'settings', element: <RequireSignIn><Settings /></RequireSignIn> },
       page('studio', 'Studio'),
       page('studio/upload', 'Upload'),
       page('studio/videos/:videoId', 'Edit video'),

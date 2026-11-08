@@ -1,0 +1,19 @@
+.problem {
+  border: 1px solid var(--bad);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.title,
+.detail {
+  margin: 0;
+}
+
+.title {
+  font-weight: 600;
+}
+
+.detail {
+  color: var(--mauve);
+  font-size: var(--text-13);
+}
