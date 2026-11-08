@@ -11,6 +11,7 @@ import { VerifyEmail } from './pages/account/VerifyEmail'
 import { ResetPassword } from './pages/account/ResetPassword'
 import { Home } from './pages/viewer/Home'
 import { Category } from './pages/viewer/Category'
+import { Watch } from './pages/viewer/Watch'
 import { Settings } from './pages/account/Settings'
 
 function ShellLayout() {
@@ -30,7 +31,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <Home /> },
       { path: 'categories/:slug', element: <Category /> },
-      page('watch/:videoId', 'Watch'),
+      { path: 'watch/:videoId', element: <Watch /> },
       { path: 'sign-up', element: <SignUp /> },
       { path: 'sign-in', element: <SignIn /> },
       { path: 'forgot-password', element: <ForgotPassword /> },

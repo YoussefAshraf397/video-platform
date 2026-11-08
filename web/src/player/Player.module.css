@@ -1,0 +1,36 @@
+.player {
+  display: grid;
+  gap: 12px;
+}
+
+.video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 8px;
+}
+
+.pickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 0 4px 4px;
+}
+
+.picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mauve);
+  font-size: var(--text-13);
+}
+
+.picker select {
+  font: inherit;
+  color: var(--ivory);
+  background: var(--plum-700);
+  border: 1px solid var(--plum-600);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
