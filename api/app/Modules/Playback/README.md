@@ -36,6 +36,15 @@ The whole matrix is tested (`PlaybackTest`: 14 states × 3 viewers). Deliberate 
 
 `Cache-Control: no-store`: the response carries credentials.
 
+## Media URLs for listings
+
+`Contracts\MediaUrls::signedUrl(string $key): string` signs one media object (a thumbnail, say) for use in a JSON response, where signed cookies don't fit. `Services\SignedUrls` implements it, and the Videos module's listings use it.
+
+- **Shape:** `{MEDIA_BASE_URL}/{key}?Expires=…&Signature=…&Key-Pair-Id=…`, a CloudFront **canned policy** URL signed with the same key pair as the cookies.
+- **Expiry:** the next full hour plus one hour. Within one clock hour every call returns the same URL, so browsers and CDNs can cache the image, and each URL is valid for at least 60 minutes.
+- **Unconfigured:** without `CLOUDFRONT_KEY_PAIR_ID` / `CLOUDFRONT_PRIVATE_KEY` it throws `503 PLAYBACK_UNAVAILABLE`, like the playback endpoint.
+- Locally the S3 emulator ignores the signature.
+
 ## Test player (S4-07)
 
 `GET /dev/player` is an internal page for demos and QA until the web app exists. It is only served when `PLAYBACK_TEST_PLAYER=true` (local and dev; the default is off, so production answers 404).

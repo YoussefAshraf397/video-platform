@@ -1,6 +1,6 @@
 # Users module
 
-Owns the `users` table: identity, public profile and account status. Other modules use `Contracts\UserDirectory` (lookups, creation, verification) and listen to `Events\*`.
+Owns the `users` table: identity, public profile and account status. Other modules use `Contracts\UserDirectory` (lookups by id or handle, `findMany` for a batch, creation, verification) and listen to `Events\*`.
 
 ## Endpoints
 
@@ -9,10 +9,14 @@ Owns the `users` table: identity, public profile and account status. Other modul
 | `GET /v1/me` | Bearer | Own account: id, email, email_verified, handle, display_name, bio, status, created_at |
 | `PATCH /v1/me` | Bearer | Change `display_name`, `handle`, `bio` (`null` clears it). Any other field, e.g. `email`, is a `422 UNKNOWN_FIELD`, not silently ignored. |
 | `GET /v1/users/{handle}` | — | Public profile: handle, display_name, bio, created_at. Case-insensitive. Suspended and deleted accounts return `404`. |
+| `GET /v1/users/{handle}/videos` | — | That creator's public videos. Served by the Videos module, see its [README](../Videos/README.md#public-listings). |
 
 ## Handles
 
-- Optional, and set by the user through `PATCH /v1/me`. Users without one have no public profile URL yet.
+- **Every account has one.** It is generated at registration from the display name and can be changed through `PATCH /v1/me`. The column is `NOT NULL`; the migration `2026_11_06_000001_backfill_user_handles` gave one to every account that lacked it, oldest first.
+- **Generation** (`Services\Handles`, used by `UserDirectory::create`): the display name is reduced to Latin-script letters and digits, transliterated to lowercase ASCII (`José Núñez` → `jose.nunez`), and each run of other characters becomes one `.`. Names with no Latin letters (Arabic, Han, emoji) fall back to `user.NNNNNN`; a result shorter than 3 characters gets `.user` appended. The base is cut to 30 characters.
+- **Collisions:** the base is tried first, then `base.2` … `base.9`, then `base.NNNN` with a random 4-digit suffix until one is free. Suffixes make room by trimming the base, so the result never exceeds 30 characters. Candidates are checked against `lower(handle)` and the unique index settles races.
+- Every generated handle matches `Accounts::HANDLE_PATTERN`, the same pattern `PATCH /v1/me` enforces.
 - 3–30 characters of letters, digits, `_` and `.`. Starts with a letter or digit, ends with a letter, digit or `_`, and has no `..`. Invalid format is error code `REGEX`.
 - **Unique case-insensitively** and stored as typed: `AdaLovelace` blocks `adalovelace`. Users may change the case of their own handle.
 - Reserved words (`admin`, `support`, `api`, `official` …, see `Rules\UniqueHandle::RESERVED`) are reported as taken. Taken or reserved is error code `UNIQUE_HANDLE`.

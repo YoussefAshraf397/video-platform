@@ -1009,10 +1009,7 @@
                                             "type": "boolean"
                                         },
                                         "handle": {
-                                            "type": [
-                                                "string",
-                                                "null"
-                                            ]
+                                            "type": "string"
                                         },
                                         "display_name": {
                                             "type": "string"
@@ -1225,10 +1222,7 @@
                                             "type": "boolean"
                                         },
                                         "handle": {
-                                            "type": [
-                                                "string",
-                                                "null"
-                                            ]
+                                            "type": "string"
                                         },
                                         "display_name": {
                                             "type": "string"
@@ -1750,10 +1744,7 @@
                                     "type": "object",
                                     "properties": {
                                         "handle": {
-                                            "type": [
-                                                "string",
-                                                "null"
-                                            ]
+                                            "type": "string"
                                         },
                                         "display_name": {
                                             "type": "string"
@@ -1777,6 +1768,625 @@
                                         "bio",
                                         "created_at"
                                     ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/videos": {
+            "get": {
+                "operationId": "publicVideos.latest",
+                "summary": "Latest videos, optionally within one category (an unknown category lists nothing)",
+                "tags": [
+                    "PublicVideos"
+                ],
+                "parameters": [
+                    {
+                        "name": "category",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Page size, 1-100 (default 20).",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "The `next_cursor` of the previous page.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "title": {
+                                                        "type": "string"
+                                                    },
+                                                    "duration_ms": {
+                                                        "type": [
+                                                            "integer",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "published_at": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "creator": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "handle": {
+                                                                "type": "string"
+                                                            },
+                                                            "display_name": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "handle",
+                                                            "display_name"
+                                                        ]
+                                                    },
+                                                    "thumbnails": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "url": {
+                                                                    "type": "string"
+                                                                },
+                                                                "width": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "height": {
+                                                                    "type": "integer"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "url",
+                                                                "width",
+                                                                "height"
+                                                            ]
+                                                        }
+                                                    }
+                                                },
+                                                "required": [
+                                                    "id",
+                                                    "title",
+                                                    "duration_ms",
+                                                    "published_at",
+                                                    "creator",
+                                                    "thumbnails"
+                                                ]
+                                            }
+                                        },
+                                        "next_cursor": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "has_more": {
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": [
+                                        "items",
+                                        "next_cursor",
+                                        "has_more"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "video.store",
+                "tags": [
+                    "Video"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "description": "bail: one problem per field",
+                                        "maxLength": 100
+                                    },
+                                    "description": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "maxLength": 5000
+                                    },
+                                    "tags": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {
+                                            "type": "string",
+                                            "maxLength": 50
+                                        },
+                                        "maxItems": 30
+                                    },
+                                    "category": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "language": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$",
+                                        "maxLength": 35
+                                    },
+                                    "visibility": {
+                                        "type": "string",
+                                        "enum": [
+                                            "public",
+                                            "unlisted",
+                                            "private"
+                                        ]
+                                    },
+                                    "age_restricted": {
+                                        "type": "boolean"
+                                    },
+                                    "made_for_kids": {
+                                        "type": "boolean"
+                                    },
+                                    "comments_enabled": {
+                                        "type": "boolean"
+                                    },
+                                    "publish_on_ready": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "required": [
+                                    "title"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "description": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "tags": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "category": {
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "properties": {
+                                                "slug": {
+                                                    "type": "string"
+                                                },
+                                                "name": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "slug",
+                                                "name"
+                                            ]
+                                        },
+                                        "language": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "visibility": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "duration_ms": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "creator": {
+                                            "type": "object",
+                                            "properties": {
+                                                "handle": {
+                                                    "type": "string"
+                                                },
+                                                "display_name": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "handle",
+                                                "display_name"
+                                            ]
+                                        },
+                                        "age_restricted": {
+                                            "type": "boolean"
+                                        },
+                                        "made_for_kids": {
+                                            "type": "boolean"
+                                        },
+                                        "comments_enabled": {
+                                            "type": "boolean"
+                                        },
+                                        "publish_on_ready": {
+                                            "type": "boolean"
+                                        },
+                                        "published_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "created_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "updated_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "etag": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "title",
+                                        "description",
+                                        "tags",
+                                        "category",
+                                        "language",
+                                        "visibility",
+                                        "status",
+                                        "duration_ms",
+                                        "creator",
+                                        "age_restricted",
+                                        "made_for_kids",
+                                        "comments_enabled",
+                                        "publish_on_ready",
+                                        "published_at",
+                                        "created_at",
+                                        "updated_at",
+                                        "etag"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "URI identifying the problem type."
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "examples": [
+                                                422
+                                            ]
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "description": "Stable machine-readable error code."
+                                        },
+                                        "request_id": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string"
+                                                    },
+                                                    "code": {
+                                                        "type": "string"
+                                                    },
+                                                    "message": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "code",
+                                                    "message"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string",
+                                            "description": "URI identifying the problem type."
+                                        },
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "integer",
+                                            "examples": [
+                                                401
+                                            ]
+                                        },
+                                        "detail": {
+                                            "type": "string"
+                                        },
+                                        "code": {
+                                            "type": "string",
+                                            "description": "Stable machine-readable error code."
+                                        },
+                                        "request_id": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "field": {
+                                                        "type": "string"
+                                                    },
+                                                    "code": {
+                                                        "type": "string"
+                                                    },
+                                                    "message": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "field",
+                                                    "code",
+                                                    "message"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "type",
+                                        "title",
+                                        "status",
+                                        "code"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{handle}/videos": {
+            "get": {
+                "operationId": "publicVideos.byCreator",
+                "summary": "One creator's videos, by handle (case-insensitive)",
+                "tags": [
+                    "PublicVideos"
+                ],
+                "parameters": [
+                    {
+                        "name": "handle",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Page size, 1-100 (default 20).",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "The `next_cursor` of the previous page.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "title": {
+                                                        "type": "string"
+                                                    },
+                                                    "duration_ms": {
+                                                        "type": [
+                                                            "integer",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "published_at": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "creator": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "handle": {
+                                                                "type": "string"
+                                                            },
+                                                            "display_name": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "handle",
+                                                            "display_name"
+                                                        ]
+                                                    },
+                                                    "thumbnails": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "url": {
+                                                                    "type": "string"
+                                                                },
+                                                                "width": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "height": {
+                                                                    "type": "integer"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "url",
+                                                                "width",
+                                                                "height"
+                                                            ]
+                                                        }
+                                                    }
+                                                },
+                                                "required": [
+                                                    "id",
+                                                    "title",
+                                                    "duration_ms",
+                                                    "published_at",
+                                                    "creator",
+                                                    "thumbnails"
+                                                ]
+                                            }
+                                        },
+                                        "next_cursor": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "has_more": {
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": [
+                                        "items",
+                                        "next_cursor",
+                                        "has_more"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "USER_NOT_FOUND: no such creator",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "type": "string"
                                 }
                             }
                         }
@@ -3613,325 +4223,6 @@
                 }
             }
         },
-        "/videos": {
-            "post": {
-                "operationId": "video.store",
-                "tags": [
-                    "Video"
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "title": {
-                                        "type": "string",
-                                        "description": "bail: one problem per field",
-                                        "maxLength": 100
-                                    },
-                                    "description": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "maxLength": 5000
-                                    },
-                                    "tags": {
-                                        "type": [
-                                            "array",
-                                            "null"
-                                        ],
-                                        "items": {
-                                            "type": "string",
-                                            "maxLength": 50
-                                        },
-                                        "maxItems": 30
-                                    },
-                                    "category": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ]
-                                    },
-                                    "language": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ],
-                                        "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$",
-                                        "maxLength": 35
-                                    },
-                                    "visibility": {
-                                        "type": "string",
-                                        "enum": [
-                                            "public",
-                                            "unlisted",
-                                            "private"
-                                        ]
-                                    },
-                                    "age_restricted": {
-                                        "type": "boolean"
-                                    },
-                                    "made_for_kids": {
-                                        "type": "boolean"
-                                    },
-                                    "comments_enabled": {
-                                        "type": "boolean"
-                                    },
-                                    "publish_on_ready": {
-                                        "type": "boolean"
-                                    }
-                                },
-                                "required": [
-                                    "title"
-                                ]
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "id": {
-                                            "type": "string"
-                                        },
-                                        "title": {
-                                            "type": "string"
-                                        },
-                                        "description": {
-                                            "type": [
-                                                "string",
-                                                "null"
-                                            ]
-                                        },
-                                        "tags": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "string"
-                                            }
-                                        },
-                                        "category": {
-                                            "type": [
-                                                "object",
-                                                "null"
-                                            ],
-                                            "properties": {
-                                                "slug": {
-                                                    "type": "string"
-                                                },
-                                                "name": {
-                                                    "type": "string"
-                                                }
-                                            },
-                                            "required": [
-                                                "slug",
-                                                "name"
-                                            ]
-                                        },
-                                        "language": {
-                                            "type": [
-                                                "string",
-                                                "null"
-                                            ]
-                                        },
-                                        "visibility": {
-                                            "type": "string"
-                                        },
-                                        "status": {
-                                            "type": "string"
-                                        },
-                                        "age_restricted": {
-                                            "type": "boolean"
-                                        },
-                                        "made_for_kids": {
-                                            "type": "boolean"
-                                        },
-                                        "comments_enabled": {
-                                            "type": "boolean"
-                                        },
-                                        "publish_on_ready": {
-                                            "type": "boolean"
-                                        },
-                                        "published_at": {
-                                            "type": [
-                                                "string",
-                                                "null"
-                                            ]
-                                        },
-                                        "created_at": {
-                                            "type": [
-                                                "string",
-                                                "null"
-                                            ]
-                                        },
-                                        "updated_at": {
-                                            "type": [
-                                                "string",
-                                                "null"
-                                            ]
-                                        },
-                                        "etag": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "id",
-                                        "title",
-                                        "description",
-                                        "tags",
-                                        "category",
-                                        "language",
-                                        "visibility",
-                                        "status",
-                                        "age_restricted",
-                                        "made_for_kids",
-                                        "comments_enabled",
-                                        "publish_on_ready",
-                                        "published_at",
-                                        "created_at",
-                                        "updated_at",
-                                        "etag"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Validation error",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "description": "URI identifying the problem type."
-                                        },
-                                        "title": {
-                                            "type": "string"
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "examples": [
-                                                422
-                                            ]
-                                        },
-                                        "detail": {
-                                            "type": "string"
-                                        },
-                                        "code": {
-                                            "type": "string",
-                                            "description": "Stable machine-readable error code."
-                                        },
-                                        "request_id": {
-                                            "type": "string"
-                                        },
-                                        "errors": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "field": {
-                                                        "type": "string"
-                                                    },
-                                                    "code": {
-                                                        "type": "string"
-                                                    },
-                                                    "message": {
-                                                        "type": "string"
-                                                    }
-                                                },
-                                                "required": [
-                                                    "field",
-                                                    "code",
-                                                    "message"
-                                                ]
-                                            }
-                                        }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status",
-                                        "code"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthenticated",
-                        "content": {
-                            "application/problem+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "description": "URI identifying the problem type."
-                                        },
-                                        "title": {
-                                            "type": "string"
-                                        },
-                                        "status": {
-                                            "type": "integer",
-                                            "examples": [
-                                                401
-                                            ]
-                                        },
-                                        "detail": {
-                                            "type": "string"
-                                        },
-                                        "code": {
-                                            "type": "string",
-                                            "description": "Stable machine-readable error code."
-                                        },
-                                        "request_id": {
-                                            "type": "string"
-                                        },
-                                        "errors": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "field": {
-                                                        "type": "string"
-                                                    },
-                                                    "code": {
-                                                        "type": "string"
-                                                    },
-                                                    "message": {
-                                                        "type": "string"
-                                                    }
-                                                },
-                                                "required": [
-                                                    "field",
-                                                    "code",
-                                                    "message"
-                                                ]
-                                            }
-                                        }
-                                    },
-                                    "required": [
-                                        "type",
-                                        "title",
-                                        "status",
-                                        "code"
-                                    ]
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/videos/{video}": {
             "patch": {
                 "operationId": "video.update",
@@ -4080,6 +4371,27 @@
                                         "status": {
                                             "type": "string"
                                         },
+                                        "duration_ms": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "creator": {
+                                            "type": "object",
+                                            "properties": {
+                                                "handle": {
+                                                    "type": "string"
+                                                },
+                                                "display_name": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "handle",
+                                                "display_name"
+                                            ]
+                                        },
                                         "age_restricted": {
                                             "type": "boolean"
                                         },
@@ -4123,6 +4435,8 @@
                                         "language",
                                         "visibility",
                                         "status",
+                                        "duration_ms",
+                                        "creator",
                                         "age_restricted",
                                         "made_for_kids",
                                         "comments_enabled",
@@ -4496,6 +4810,27 @@
                                         "status": {
                                             "type": "string"
                                         },
+                                        "duration_ms": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "creator": {
+                                            "type": "object",
+                                            "properties": {
+                                                "handle": {
+                                                    "type": "string"
+                                                },
+                                                "display_name": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "handle",
+                                                "display_name"
+                                            ]
+                                        },
                                         "age_restricted": {
                                             "type": "boolean"
                                         },
@@ -4539,6 +4874,8 @@
                                         "language",
                                         "visibility",
                                         "status",
+                                        "duration_ms",
+                                        "creator",
                                         "age_restricted",
                                         "made_for_kids",
                                         "comments_enabled",
@@ -4654,6 +4991,27 @@
                                         "status": {
                                             "type": "string"
                                         },
+                                        "duration_ms": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "creator": {
+                                            "type": "object",
+                                            "properties": {
+                                                "handle": {
+                                                    "type": "string"
+                                                },
+                                                "display_name": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "handle",
+                                                "display_name"
+                                            ]
+                                        },
                                         "age_restricted": {
                                             "type": "boolean"
                                         },
@@ -4697,6 +5055,8 @@
                                         "language",
                                         "visibility",
                                         "status",
+                                        "duration_ms",
+                                        "creator",
                                         "age_restricted",
                                         "made_for_kids",
                                         "comments_enabled",
@@ -4939,6 +5299,27 @@
                                         "status": {
                                             "type": "string"
                                         },
+                                        "duration_ms": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ]
+                                        },
+                                        "creator": {
+                                            "type": "object",
+                                            "properties": {
+                                                "handle": {
+                                                    "type": "string"
+                                                },
+                                                "display_name": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "handle",
+                                                "display_name"
+                                            ]
+                                        },
                                         "age_restricted": {
                                             "type": "boolean"
                                         },
@@ -4982,6 +5363,8 @@
                                         "language",
                                         "visibility",
                                         "status",
+                                        "duration_ms",
+                                        "creator",
                                         "age_restricted",
                                         "made_for_kids",
                                         "comments_enabled",
@@ -5078,6 +5461,25 @@
                 "tags": [
                     "Video"
                 ],
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Page size, 1-100 (default 20).",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "The `next_cursor` of the previous page.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "",
@@ -5087,10 +5489,164 @@
                                     "type": "object",
                                     "properties": {
                                         "items": {
-                                            "type": [
-                                                "string",
-                                                "array"
-                                            ]
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "title": {
+                                                        "type": "string"
+                                                    },
+                                                    "description": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "tags": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "category": {
+                                                        "type": [
+                                                            "object",
+                                                            "null"
+                                                        ],
+                                                        "properties": {
+                                                            "slug": {
+                                                                "type": "string"
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "slug",
+                                                            "name"
+                                                        ]
+                                                    },
+                                                    "language": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "visibility": {
+                                                        "type": "string"
+                                                    },
+                                                    "status": {
+                                                        "type": "string"
+                                                    },
+                                                    "duration_ms": {
+                                                        "type": [
+                                                            "integer",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "creator": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "handle": {
+                                                                "type": "string"
+                                                            },
+                                                            "display_name": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "handle",
+                                                            "display_name"
+                                                        ]
+                                                    },
+                                                    "age_restricted": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "made_for_kids": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "comments_enabled": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "publish_on_ready": {
+                                                        "type": "boolean"
+                                                    },
+                                                    "published_at": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "created_at": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "updated_at": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "etag": {
+                                                        "type": "string"
+                                                    },
+                                                    "thumbnails": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "url": {
+                                                                    "type": "string"
+                                                                },
+                                                                "width": {
+                                                                    "type": "integer"
+                                                                },
+                                                                "height": {
+                                                                    "type": "integer"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "url",
+                                                                "width",
+                                                                "height"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "caption_languages": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                },
+                                                "required": [
+                                                    "id",
+                                                    "title",
+                                                    "description",
+                                                    "tags",
+                                                    "category",
+                                                    "language",
+                                                    "visibility",
+                                                    "status",
+                                                    "duration_ms",
+                                                    "creator",
+                                                    "age_restricted",
+                                                    "made_for_kids",
+                                                    "comments_enabled",
+                                                    "publish_on_ready",
+                                                    "published_at",
+                                                    "created_at",
+                                                    "updated_at",
+                                                    "etag",
+                                                    "thumbnails",
+                                                    "caption_languages"
+                                                ]
+                                            }
                                         },
                                         "next_cursor": {
                                             "type": [

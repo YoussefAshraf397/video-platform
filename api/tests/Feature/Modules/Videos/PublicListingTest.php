@@ -39,6 +39,14 @@ it('lists only published, public, non-age-restricted, unblocked, undeleted video
         ->assertJsonPath('has_more', false);
 });
 
+it('does not list a video that moderation marked age-restricted, though its flag is off', function () {
+    $shown = ($this->video)(['title' => 'Shown']);
+    ($this->video)(['age_restricted' => false, 'moderation_status' => 'age_restricted']);
+
+    $this->getJson('/v1/videos')->assertOk()->assertJsonPath('items.*.id', [$shown->public_id]);
+    $this->getJson('/v1/users/mona.haddad/videos')->assertOk()->assertJsonPath('items.*.id', [$shown->public_id]);
+});
+
 it('orders newest published first', function () {
     $old = ($this->video)(['published_at' => now()->subDays(3)]);
     $new = ($this->video)(['published_at' => now()->subDay()]);

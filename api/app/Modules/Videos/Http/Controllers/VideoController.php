@@ -14,6 +14,7 @@ use App\Platform\Api\Http\KnownFields;
 use App\Platform\Api\Http\Preconditions;
 use App\Platform\Api\Pagination\CursorPage;
 use Dedoc\Scramble\Attributes\HeaderParameter;
+use Dedoc\Scramble\Attributes\QueryParameter;
 use Dedoc\Scramble\Attributes\Response;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -113,7 +114,13 @@ final class VideoController
         return $request->hasHeader('If-Match') ? Preconditions::expectedVersion($request) : null;
     }
 
-    /** The caller's own videos in every status, newest first. */
+    /**
+     * The caller's own videos in every status, newest first.
+     *
+     * @response array{items: list<array{id: string, title: string, description: ?string, tags: list<string>, category: ?array{slug: string, name: string}, language: ?string, visibility: string, status: string, duration_ms: ?int, creator: array{handle: string, display_name: string}, age_restricted: bool, made_for_kids: bool, comments_enabled: bool, publish_on_ready: bool, published_at: ?string, created_at: ?string, updated_at: ?string, etag: string, thumbnails: list<array{url: string, width: int, height: int}>, caption_languages: list<string>}>, next_cursor: ?string, has_more: bool}
+     */
+    #[QueryParameter('limit', 'Page size, 1-100 (default 20).', required: false, type: 'int', default: 20)]
+    #[QueryParameter('cursor', 'The `next_cursor` of the previous page.', required: false, type: 'string')]
     public function mine(Request $request): JsonResponse
     {
         $query = Video::query()->with('category')
@@ -196,7 +203,7 @@ final class VideoController
 
     /**
      * @param  list<string>  $tags
-     * @return array<string, mixed>
+     * @return array{id: string, title: string, description: ?string, tags: list<string>, category: ?array{slug: string, name: string}, language: ?string, visibility: string, status: string, duration_ms: ?int, creator: array{handle: string, display_name: string}, age_restricted: bool, made_for_kids: bool, comments_enabled: bool, publish_on_ready: bool, published_at: ?string, created_at: ?string, updated_at: ?string, etag: string}
      */
     private static function present(Video $video, array $tags, UserRecord $creator): array
     {

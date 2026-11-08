@@ -12,12 +12,16 @@ Owns video metadata and the video state machine (design doc §12): the `videos`,
 | `DELETE /v1/videos/{id}` | Bearer | Owner only, soft delete (status `deleted`). `If-Match` is optional and honoured if sent. `204`. |
 | `POST /v1/videos/{id}:publish` | Bearer | Owner only. Optional body `{visibility}` sets it in the same step. See [Publishing](#publishing). |
 | `POST /v1/videos/{id}:unpublish` | Bearer | Owner only. The video is kept but only its owner sees it until republished. |
-| `GET /v1/me/videos` | Bearer | Your videos in every status except deleted, newest first, cursor-paginated. |
+| `GET /v1/me/videos` | Bearer | Your videos in every status except deleted, newest first, cursor-paginated. Items also carry `thumbnails` and `caption_languages`. |
+| `GET /v1/videos` | — | Latest public videos, newest first. `?category=<slug>`, `?limit=` (1-100, default 20), `?cursor=`. See [Public listings](#public-listings). |
+| `GET /v1/users/{handle}/videos` | — | One creator's public videos, same rules and shape. Unknown or suspended handle: `404 USER_NOT_FOUND`. |
 | `GET /v1/categories` | — | Active categories in display order: `[{slug, name}]`. |
 | `POST /v1/videos/{id}/subtitles` | Bearer + `Idempotency-Key` | Owner only. Adds a subtitle track and returns a form upload for the file. See [Subtitles](#subtitles-s4-06). |
 | `POST /v1/videos/{id}/subtitles/{sid}:complete` | Bearer | Owner only. After the file is uploaded. Idempotent. |
 | `GET /v1/videos/{id}/subtitles` | Bearer | Owner only. The video's tracks with their status, newest first. |
 | `DELETE /v1/videos/{id}/subtitles/{sid}` | Bearer | Owner only. `204`. Players stop offering it once the next captions revision is published. |
+
+Every video response (single, list or tile) carries `duration_ms` (`null` until processing has measured it) and `creator: {handle, display_name}`.
 
 `{id}` is the 11-character `public_id` (random base64url). The internal UUID never leaves the API.
 
@@ -79,6 +83,21 @@ Proof: every one of the 16×16 status pairs is checked against the spec table, w
   - READY and PUBLISHED commit together, so nobody ever sees a READY video that should have been published.
   - If a guard fails, the video simply stays `ready`, and the log says which guards.
   - The flag only matters at that moment: setting it on a video that's already `ready` doesn't publish it.
+
+## Public listings
+
+`GET /v1/videos` and `GET /v1/users/{handle}/videos` (`Http\Controllers\PublicVideosController`) feed the web app's home and channel pages. No sign-in, so the rules are strict. A video is listed only when **all** hold:
+
+- `status = published` and `visibility = public` (`unlisted` is reachable by link only, so it is never listed);
+- not deleted, and not blocked by moderation;
+- **not age-restricted**, whether by the `age_restricted` flag or by moderation (`moderation_status = age_restricted`). Playback refuses both to everyone but the owner until age verification exists (it needs a verified age of 18+, and accounts have none yet), so an anonymous listing must not show tiles that anyone but the owner would be refused on click (and thumbnails of restricted content). Revisit together with age verification;
+- its creator is active. Suspended creators' videos disappear, matching their profile answering `404`.
+
+Order is `published_at desc, id desc`, cursor-paginated (`{items, next_cursor, has_more}`, see Platform/Api). An unknown `category` slug lists nothing (`200` with an empty list), not an error.
+
+**Tile** (`Services\VideoTiles`): `{id, title, duration_ms, published_at, creator: {handle, display_name}, thumbnails: [{url, width, height}]}`.
+- `thumbnails` are the WebP files of the primary thumbnail, narrowest first, each a CloudFront signed URL from `Playback\Contracts\MediaUrls`; `[]` while there is none.
+- One query loads thumbnails and one lookup loads the creators for the whole page, however many tiles it holds.
 
 ## Media and thumbnails
 
